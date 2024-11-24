@@ -1,81 +1,132 @@
 import cv2
+import os
+import re
 import mediapipe as mp
 import time
+import logging
+from matplotlib import pyplot as plt
 
-# เริ่มต้น mediapipe pose module
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
 mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
 
-# เปิดไฟล์วิดีโอ
+# drawing design
+landmark_drawing_spec_green = mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=3, circle_radius=8)
+landmark_drawing_spec_red = mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=3, circle_radius=8)
+connection_drawing_spec = mp_drawing.DrawingSpec(color=(255, 0, 0), thickness=6)
+landmark_drawing_spec = mp_drawing_styles.get_default_pose_landmarks_style()
+
+# parameters
+start_time = None
+previous_time = 0  # start time
+previous_landmarks = None
+movement = 0
+landmark_threshold = 0.06
+body_threshold = 0.8*33
+no_movement_list = []  # เก็บจุดที่ไม่ขยับ
+time_count = 0
+time_count_threshold = 5 # stay still 5 sec
+time_list = []
+
+is_paused = False
+
 cap = cv2.VideoCapture('test.mp4')
 
-# ตัวแปรเก็บตำแหน่งก่อนหน้า (ใช้สำหรับการคำนวณการเคลื่อนไหว)
-previous_landmarks = None
-no_movement_duration = 0  # เก็บเวลาที่ไม่มีการเคลื่อนไหว
-no_movement_threshold = 0.1  # เกณฑ์การเคลื่อนไหวที่น้อย
-no_movement_list = []  # เก็บเวลาที่ไม่มีการเคลื่อนไหวเกิน 5 วินาที
-start_time = None
+def convert_ms_to_minutes(ms):
+    sec = ms / 1000  
+    minutes = int(sec // 60) 
+    seconds = int(sec % 60)   
+    return round(minutes + seconds / 60, 2)
 
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         break
 
-    # แปลงภาพจาก BGR เป็น RGB
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    current_time = cap.get(cv2.CAP_PROP_POS_MSEC)
 
-    # ตรวจจับ pose
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = pose.process(rgb_frame)
 
-    # หากมีการตรวจจับ landmark
     if results.pose_landmarks:
-        # วาด landmark และเชื่อมจุดต่างๆ
-        mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
 
-        # คำนวณการเคลื่อนไหว
-        movement_detected = False
-        for i, landmark in enumerate(results.pose_landmarks.landmark):
-            if previous_landmarks:
-                prev_landmark = previous_landmarks.landmark[i]
-                movement = ((landmark.x - prev_landmark.x)**2 + 
-                            (landmark.y - prev_landmark.y)**2 + 
-                            (landmark.z - prev_landmark.z)**2) ** 0.5  # คำนวณระยะทางการเคลื่อนไหว
+        # every 1 sec
+        if current_time - previous_time >= 1000:
+            previous_time = current_time
 
-                # ถ้าการเคลื่อนไหวต่ำกว่าค่าที่กำหนด
-                if movement > no_movement_threshold:
-                    movement_detected = True
-        # ถ้าไม่พบการเคลื่อนไหว
-        if not movement_detected:
-            if start_time is None:  # เริ่มต้นเวลา
-                start_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000  # เริ่มจับเวลา (เวลาของคลิป)
-        else:
-            if start_time is not None:  # ถ้ามีการเคลื่อนไหวและมีการจับเวลา
-                elapsed_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000 - start_time  # คำนวณเวลาที่ไม่มีการเคลื่อนไหว
-                if elapsed_time >= 5:  # ถ้าเวลาผ่านไป 5 วินาที
-                    # บันทึกเวลาของคลิป (ใช้เวลาที่ผ่านไปจาก `cap.get()`)
-                    no_movement_list.append(start_time)  # เก็บเวลาเริ่มต้น
-                start_time = None  # รีเซ็ตเวลาเมื่อพบการเคลื่อนไหว
+                # landmark_drawing_spec = mp_drawing_styles.get_default_pose_landmarks_style()
 
-        # เก็บข้อมูล landmark ของครั้งล่าสุด
-        previous_landmarks = results.pose_landmarks
+                # each landmark
+            for i, landmark in enumerate(results.pose_landmarks.landmark):
 
+                # only body and nose
+                if i > 0 and i <=10 :
+                    landmark.visibility = 0
 
-    # # คำนวณเวลาที่คลิปเล่นไปแล้ว
-    # current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000  # เวลาในหน่วยวินาที
+                # movement calculation
+                if previous_landmarks:
+                    prev_landmark = previous_landmarks.landmark[i]
+                    movement = ((landmark.x - prev_landmark.x)**2 +
+                                (landmark.y - prev_landmark.y)**2 +
+                                (landmark.z - prev_landmark.z)**2) ** 0.5  # Euclidean Distance
 
-    # # แสดงเวลาในหน้าจอ
-    # cv2.putText(frame, f'Time: {current_time:.2f}s', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                # no movement
+                if movement < landmark_threshold:
+                    landmark_drawing_spec[i] = landmark_drawing_spec_green
+                    no_movement_list.append(i)
+                else:
+                    landmark_drawing_spec[i] = landmark_drawing_spec_red
+                    #print(f"landmark: {i} movement:  {movement}")
 
-    # # แสดงผลวิดีโอ
-    # cv2.imshow('Pose Detection', frame)
+            print("จำนวนจุดที่ไม่ขยับ: ", len(no_movement_list))
+            if len(no_movement_list) >= body_threshold:
+                time_count += 1
+                print(time_count)
+                if start_time is None:
+                    start_time = convert_ms_to_minutes(cap.get(cv2.CAP_PROP_POS_MSEC))
+                    print("start_time: ", start_time)              
+            else:
+                print("ไม่นิ่ง")
+                # no movement < 80%  -> Reset
+                time_count = 0
+                start_time = None
+                # continue
 
-    # # ออกจากการประมวลผลเมื่อกด 'q'
-    # if cv2.waitKey(1) & 0xFF == ord('q'):
-    #     break
+            no_movement_list =[]
+
+            previous_landmarks = results.pose_landmarks
+
+        elif current_time < 1000:
+
+            for i, landmark in enumerate(results.pose_landmarks.landmark):
+
+                # only body and nose
+                if i > 0 and i <=10 :
+                    landmark.visibility = 0
+
+                landmark_drawing_spec[i] = landmark_drawing_spec_green
+
+        mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
+                                                landmark_drawing_spec=landmark_drawing_spec,
+                                                connection_drawing_spec=connection_drawing_spec)
+     
+    if time_count >= time_count_threshold and not start_time in time_list:
+        time_list.append(start_time)
+        print("บันทึก ", start_time)
+        while True:
+            if cv2.waitKey(1) & 0xFF == 32:  # กด space bar อีกครั้งเพื่อเล่นต่อ
+                break
+        
+    current_time = cap.get(cv2.CAP_PROP_POS_MSEC)
+    ### video showing for MY MAC
+    cv2.putText(frame, f'Time: {convert_ms_to_minutes(current_time)}s', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    cv2.imshow('Pose Detection', frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
 # แสดงผลเวลาที่ไม่มีการเคลื่อนไหวเกิน 5 วินาที
-print("No Movement List:", no_movement_list)
+print("Time List:", time_list)
 
 # ปิดการเชื่อมต่อ
 cap.release()
