@@ -150,6 +150,7 @@ import os
 import cv2
 import mediapipe as mp
 import math
+import json
 
 face = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 set_labels = {
@@ -173,6 +174,24 @@ input_folders = [
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
 POSE_CONNECTIONS = list(mp_pose.POSE_CONNECTIONS)
+
+def save_graphs_to_json(graphs, json_path):
+    graph_list = []
+    for G in graphs:
+        graph_data = {
+            "classification": G.graph.get("classification"),
+            "filename": G.graph.get("filename"),
+            "nodes": [
+                {"id": node, **data} for node, data in G.nodes(data=True)
+            ],
+            "edges": [
+                {"source": u, "target": v, **data} for u, v, data in G.edges(data=True)
+            ]
+        }
+        graph_list.append(graph_data)
+    
+    with open(json_path, 'w') as json_file:
+        json.dump(graph_list, json_file, indent=4)
 
 def calculate_distance(x1, y1, x2, y2, z1=0, z2=0):
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
@@ -204,6 +223,8 @@ def extract_keypoints_as_graphs(folders, output_pickle):
                     
                     G.graph['classification'] = class_idx
 
+                    G.graph['filename'] = filename
+
                     # เพิ่มโหนดในกราฟ
                     for idx, landmark in enumerate(results.pose_landmarks.landmark):
                         G.add_node(idx, 
@@ -230,7 +251,9 @@ def extract_keypoints_as_graphs(folders, output_pickle):
 
     # บันทึก List ของกราฟทั้งหมดในไฟล์ pickle
     save_graphs_to_pickle(graphs, output_pickle)
+    save_graphs_to_json(graphs, output_json)
 
+output_json = "output_graphs.json"
 output_pickle = "output_graphs.pkl"
 extract_keypoints_as_graphs(input_folders, output_pickle)
 pose.close()
