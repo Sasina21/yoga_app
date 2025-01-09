@@ -8,18 +8,26 @@ import json
 
 relevant_nodes = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]
 
-# not critical points val=0
+# critical points val=1
 face = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+left_arm = [13, 15]
+left_upper_arm = [13]
+right_arm = [14, 16]
+right_upper_arm = [14]
+left_leg = [25, 27]
+right_leg = [26, 28]
+body = [11, 12, 23, 24]
+
 set_labels = {
-    0: face + [11, 13, 15], 
-    1: face + [11, 12 ,13, 14, 15, 16],
-    2: face,
-    3: face + [15, 16 ,24, 26, 28],  
-    4: face + [15, 16, 23, 25, 27],
-    5: face + [11, 13, 15, 16, 23, 25, 27],
-    6: face + [12, 14, 15, 16, 24, 26, 28],
-    7: face + [16],
-    8: face + [15]
+    0: body + right_arm + left_leg + right_leg, 
+    1: body + left_leg + right_leg,
+    2: body + right_arm + left_arm + right_leg + left_leg,
+    3: body + left_upper_arm + right_upper_arm + left_leg,  
+    4: body + left_upper_arm + right_upper_arm + right_leg,
+    5: body + right_upper_arm + right_leg,
+    6: body + left_upper_arm + left_leg,
+    7: body + left_arm + right_upper_arm + left_leg + right_leg,
+    8: body + left_upper_arm + right_arm + left_leg + right_leg
 }
 
 input_folders = []
@@ -49,7 +57,12 @@ def save_graphs_to_json(graphs, json_path):
         graph_data = {
             # "classification": G.graph.get("classification"),
             "filename": G.graph.get("filename"),
-            "labels": G.graph.get("labels"),
+            "left_arm_label": G.graph.get("left_arm_label"),
+            "right_arm_label": G.graph.get("right_arm_label"),
+            "left_upper_arm_label": G.graph.get("left_upper_arm_label"),
+            "right_upper_arm_label": G.graph.get("right_upper_arm_label"),
+            "left_leg_label": G.graph.get("left_leg_label"),
+            "right_leg_label": G.graph.get("right_leg_label"),
             "nodes": [
                 {"id": node, **data} for node, data in G.nodes(data=True)
             ],
@@ -117,11 +130,7 @@ def extract_keypoints_as_graphs(folders, output_pickle):
                         G.add_node(idx, 
                                    x=landmark.x * width, 
                                    y=landmark.y * height, 
-                                   z=landmark.z,
-                                   label=0 if idx in set_label else 1)
-                        
-                        if idx in relevant_nodes:
-                            label_list.append(G.nodes[idx]['label'])
+                                   z=landmark.z)
 
                     for connection in POSE_CONNECTIONS:
                         start_idx, end_idx = connection
@@ -153,7 +162,14 @@ def extract_keypoints_as_graphs(folders, output_pickle):
                                 angle = calculate_angle(p1, p2, p3)
                                 G.nodes[p2_idx]['angle'] = angle
 
-                    G.graph['labels'] = label_list
+                    G.graph['left_arm_label'] = (1 if all(node in set_label for node in left_arm) else 0)
+                    G.graph['right_arm_label'] = (1 if all(node in set_label for node in right_arm) else 0)
+                    G.graph['left_upper_arm_label'] = (1 if all(node in set_label for node in left_upper_arm) else 0)
+                    G.graph['right_upper_arm_label'] = (1 if all(node in set_label for node in right_upper_arm) else 0)
+                    G.graph['left_leg_label'] = (1 if all(node in set_label for node in left_leg) else 0)
+                    G.graph['right_leg_label'] = (1 if all(node in set_label for node in right_leg) else 0)
+
+                    
                     graphs.append(G)
 
     save_graphs_to_pickle(graphs, output_pickle)
