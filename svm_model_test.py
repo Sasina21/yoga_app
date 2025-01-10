@@ -1,6 +1,9 @@
 import json
-import joblib
 import numpy as np
+import joblib
+import pandas as pd
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import accuracy_score
 
 # โหลดโมเดล, scaler, และ label encoder
@@ -17,8 +20,11 @@ X_test = []  # เก็บ input (angle ของ nodes)
 y_true_combined = []  # เก็บ output label ที่รวมกัน (ground truth)
 file_names = []  # เก็บชื่อไฟล์สำหรับอ้างอิง
 
+# เลือกมุมจาก landmark ที่กำหนด
+selected_landmarks = [11, 12, 23, 24, 25, 26, 27, 28]
+
 for item in test_data:
-    angles = [node.get('angle', 0) for node in item['nodes']]  # ใช้ค่า angle ถ้ามี ถ้าไม่มีก็ใส่ 0
+    angles = [node.get('angle', 0) for i, node in enumerate(item['nodes']) if i in selected_landmarks]  # ใช้ค่า angle เฉพาะ landmark ที่เลือก
     X_test.append(angles)
     file_names.append(item['filename'])
 
@@ -48,9 +54,20 @@ predicted_labels = label_encoder.inverse_transform(predictions)
 # คำนวณ Accuracy
 accuracy = accuracy_score(y_true_combined, predicted_labels)
 
-# แสดงผลลัพธ์
-print("Prediction Results:")
+print("Prediction Errors:")
 for i, label in enumerate(predicted_labels):
-    print(f"File: {file_names[i]} → Predicted Label: {label} → Ground Truth: {y_true_combined[i]}")
+    if label != y_true_combined[i]:
+        print(f"File: {file_names[i]} → Predicted Label: {label} → Ground Truth: {y_true_combined[i]}")
 
 print(f"\nAccuracy on Test Data: {accuracy * 100:.2f}%")
+
+# สร้าง DataFrame สำหรับผลลัพธ์
+results_df = pd.DataFrame({
+    "File": file_names,
+    "Predicted Label": predicted_labels,
+    "Ground Truth": y_true_combined
+})
+
+# บันทึกเป็นไฟล์ CSV
+results_df.to_csv('prediction_results.csv', index=False)
+print("Results saved to 'prediction_results.csv'")
