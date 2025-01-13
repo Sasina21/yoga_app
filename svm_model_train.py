@@ -16,27 +16,61 @@ y_combined = []  # เก็บ output label ที่รวมกัน
 selected_landmarks = [11, 12, 23, 24, 25, 26, 27, 28]
 
 for item in data:
-    angles = [node.get('angle', 0) for node in item['nodes']]  # ใช้ค่า angle ถ้ามี ถ้าไม่มีก็ใส่ 0
+    angles = []
+    for node in item['nodes']:
+        angle = node.get('angle', 0)
+        angles.append(angle)  # เก็บเฉพาะ angle
     X.append(angles)
+
+    # angles_positions = []
+    # for i, node in enumerate(item['nodes']):
+    #     if i in selected_landmarks:
+    #         angle = node.get('angle', 0)
+    #         x = node.get('x', 0)
+    #         y = node.get('y', 0)
+    #         z = node.get('z', 0)
+    #         angles_positions.extend([angle, x, y, z])  # รวม angle และตำแหน่ง x, y, z
+    # X.append(angles_positions)
     
+    # # สร้าง output label ใหม่
+    # left = item['left_leg_label']
+    # right = item['right_leg_label']
+    # if left == 1 and right == 0:
+    #     y_combined.append("left_leg")
+    # elif left == 0 and right == 1:
+    #     y_combined.append("right_leg")
+    # elif left == 1 and right == 1:
+    #     y_combined.append("left_leg+right_leg")
+    # else:
+    #     y_combined.append("none")  # กรณีที่ไม่มีทั้งสองข้าง
+
     # สร้าง output label ใหม่
-    left = item['left_leg_label']
-    right = item['right_leg_label']
-    if left == 1 and right == 0:
-        y_combined.append("left_leg")
-    elif left == 0 and right == 1:
-        y_combined.append("right_leg")
-    elif left == 1 and right == 1:
-        y_combined.append("left_leg+right_leg")
-    else:
-        y_combined.append("none")  # กรณีที่ไม่มีทั้งสองข้าง
+    left_leg = item.get('left_leg_label',0)
+    right_leg = item.get('right_leg_label',0)
+    left_arm = item.get('left_arm_label', 0)
+    left_upper_arm = item.get('left_upper_arm_label', 0)
+    right_arm = item.get('right_arm_label', 0)
+    right_upper_arm = item.get('right_upper_arm_label', 0)
+
+    labels_combined = {
+        'left_arm': left_arm,
+        'left_upper_arm': left_upper_arm,
+        'right_arm': right_arm,
+        'right_upper_arm': right_upper_arm,
+        'left_leg': left_leg,
+        'right_leg': right_leg
+    }
+
+    y_combined.append(labels_combined)
 
 X = np.array(X)
 y_combined = np.array(y_combined)
 
-# แปลง output label ให้เป็นตัวเลขสำหรับ SVM
+# # แปลง output label ให้เป็นตัวเลขสำหรับ SVM
+# label_encoder = LabelEncoder()
+# y_encoded = label_encoder.fit_transform(y_combined)
 label_encoder = LabelEncoder()
-y_encoded = label_encoder.fit_transform(y_combined)
+y_encoded = label_encoder.fit_transform([str(label) for label in y_combined])
 
 # สเกลข้อมูลเพื่อให้เหมาะสมกับ SVM
 scaler = StandardScaler()

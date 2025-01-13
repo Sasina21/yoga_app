@@ -24,21 +24,39 @@ file_names = []  # เก็บชื่อไฟล์สำหรับอ้�
 selected_landmarks = [11, 12, 23, 24, 25, 26, 27, 28]
 
 for item in test_data:
-    angles = [node.get('angle', 0) for i, node in enumerate(item['nodes']) if i in selected_landmarks]  # ใช้ค่า angle เฉพาะ landmark ที่เลือก
+    # angles = [node.get('angle', 0) for node in item['node']]
+    # # angles = [node.get('angle', 0) for i, node in enumerate(item['nodes']) if i in selected_landmarks]  # ใช้ค่า angle เฉพาะ landmark ที่เลือก
+
+    angles = []
+    for node in item['nodes']:
+        angle = node.get('angle', 0)
+        angles.append(angle)  # ใช้เฉพาะ angle
+
     X_test.append(angles)
     file_names.append(item['filename'])
 
+    # # รวม label จริง (ground truth)
+    # left = item['left_leg_label']
+    # right = item['right_leg_label']
+    # if left == 1 and right == 0:
+    #     y_true_combined.append("left_leg")
+    # elif left == 0 and right == 1:
+    #     y_true_combined.append("right_leg")
+    # elif left == 1 and right == 1:
+    #     y_true_combined.append("left_leg+right_leg")
+    # else:
+    #     y_true_combined.append("none")  # กรณีไม่มี label ใดเลย
+
     # รวม label จริง (ground truth)
-    left = item['left_leg_label']
-    right = item['right_leg_label']
-    if left == 1 and right == 0:
-        y_true_combined.append("left_leg")
-    elif left == 0 and right == 1:
-        y_true_combined.append("right_leg")
-    elif left == 1 and right == 1:
-        y_true_combined.append("left_leg+right_leg")
-    else:
-        y_true_combined.append("none")  # กรณีไม่มี label ใดเลย
+    labels_combined = {
+        'left_arm': item.get('left_arm_label', 0),
+        'left_upper_arm': item.get('left_upper_arm_label', 0),
+        'right_arm': item.get('right_arm_label', 0),
+        'right_upper_arm': item.get('right_upper_arm_label', 0),
+        'left_leg': item.get('left_leg_label', 0),
+        'right_leg': item.get('right_leg_label', 0)
+    }
+    y_true_combined.append(labels_combined)
 
 X_test = np.array(X_test)
 
@@ -52,7 +70,8 @@ predictions = svm_model.predict(X_test_scaled)
 predicted_labels = label_encoder.inverse_transform(predictions)
 
 # คำนวณ Accuracy
-accuracy = accuracy_score(y_true_combined, predicted_labels)
+# accuracy = accuracy_score(y_true_combined, predicted_labels)
+accuracy = accuracy_score([str(label) for label in y_true_combined], predicted_labels)
 
 print("Prediction Errors:")
 for i, label in enumerate(predicted_labels):

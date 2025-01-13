@@ -6,7 +6,13 @@ import mediapipe as mp
 import math
 import json
 
-relevant_nodes = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]
+input_folders = []
+base_folders = "prelim/ dataset/TEST" # 34 รูป
+for i in range(18):
+    folder_path = os.path.join(base_folders, str(i))  
+    if os.path.exists(folder_path):
+        print(f"Reading folder: {folder_path}")
+        input_folders.append(folder_path)
 
 # critical points val=1
 face = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -19,24 +25,18 @@ right_leg = [26, 28]
 body = [11, 12, 23, 24]
 
 set_labels = {
-    0: body + right_arm + left_leg + right_leg, 
+    0: body + left_arm + left_leg + right_leg, 
     1: body + left_leg + right_leg,
-    2: body + right_arm + left_arm + right_leg + left_leg,
+    2: body + left_arm + right_arm + left_leg + right_leg,
     3: body + left_upper_arm + right_upper_arm + left_leg,  
     4: body + left_upper_arm + right_upper_arm + right_leg,
     5: body + right_upper_arm + right_leg,
     6: body + left_upper_arm + left_leg,
     7: body + left_arm + right_upper_arm + left_leg + right_leg,
-    8: body + left_upper_arm + right_arm + left_leg + right_leg
+    8: body + left_upper_arm + right_arm + left_leg + right_leg,
+    9: body + right_arm + left_leg + right_leg,
+    10: body + left_upper_arm + right_arm + left_leg + right_leg
 }
-
-input_folders = []
-base_folders = "prelim/ dataset/TRAIN" # 34 รูป
-for i in range(18):
-    folder_path = os.path.join(base_folders, str(i))  
-    if os.path.exists(folder_path):
-        print(f"Reading folder: {folder_path}")
-        input_folders.append(folder_path)
 
 # input_folders = [
 #     "prelim/_dataset/TRAIN/Downdog",        # Classification = 0
@@ -57,12 +57,12 @@ def save_graphs_to_json(graphs, json_path):
         graph_data = {
             # "classification": G.graph.get("classification"),
             "filename": G.graph.get("filename"),
-            "left_arm_label": G.graph.get("left_arm_label"),
-            "right_arm_label": G.graph.get("right_arm_label"),
-            "left_upper_arm_label": G.graph.get("left_upper_arm_label"),
-            "right_upper_arm_label": G.graph.get("right_upper_arm_label"),
-            "left_leg_label": G.graph.get("left_leg_label"),
-            "right_leg_label": G.graph.get("right_leg_label"),
+            # "left_arm_label": G.graph.get("left_arm_label"),
+            # "right_arm_label": G.graph.get("right_arm_label"),
+            # "left_upper_arm_label": G.graph.get("left_upper_arm_label"),
+            # "right_upper_arm_label": G.graph.get("right_upper_arm_label"),
+            # "left_leg_label": G.graph.get("left_leg_label"),
+            # "right_leg_label": G.graph.get("right_leg_label"),
             "nodes": [
                 {"id": node, **data} for node, data in G.nodes(data=True)
             ],
@@ -92,7 +92,7 @@ def calculate_angle(a, b, c):
         return 0
 
     cos_angle = dot_product / (magnitude_ba * magnitude_bc)
-    angle = math.acos(max(-1, min(1, cos_angle)))  # Clamp value to avoid math domain error
+    angle = math.acos(max(-1, min(1, cos_angle)))
     return math.degrees(angle)
 
 
@@ -105,7 +105,7 @@ def extract_keypoints_as_graphs(folders, output_pickle):
     graphs = []
 
     for class_idx, folder in enumerate(folders):
-        set_label = set_labels.get(class_idx, [])
+        # set_label = set_labels.get(class_idx, [])
 
         for filename in os.listdir(folder):
             file_path = os.path.join(folder, filename)
@@ -123,15 +123,23 @@ def extract_keypoints_as_graphs(folders, output_pickle):
                     label_list = []
                     G = nx.Graph()
 
-                    # G.graph['classification'] = class_idx
                     G.graph['filename'] = filename
 
+                    # G.graph['left_arm_label'] = (1 if all(node in set_label for node in left_arm) else 0)
+                    # G.graph['right_arm_label'] = (1 if all(node in set_label for node in right_arm) else 0)
+                    # G.graph['left_upper_arm_label'] = (1 if all(node in set_label for node in left_upper_arm) else 0)
+                    # G.graph['right_upper_arm_label'] = (1 if all(node in set_label for node in right_upper_arm) else 0)
+                    # G.graph['left_leg_label'] = (1 if all(node in set_label for node in left_leg) else 0)
+                    # G.graph['right_leg_label'] = (1 if all(node in set_label for node in right_leg) else 0)
+
+                    # Node
                     for idx, landmark in enumerate(results.pose_landmarks.landmark):
                         G.add_node(idx, 
                                    x=landmark.x * width, 
                                    y=landmark.y * height, 
                                    z=landmark.z)
-
+                    
+                    # Distance
                     for connection in POSE_CONNECTIONS:
                         start_idx, end_idx = connection
                         if start_idx < len(results.pose_landmarks.landmark) and end_idx < len(results.pose_landmarks.landmark):
@@ -144,7 +152,7 @@ def extract_keypoints_as_graphs(folders, output_pickle):
                             )
                             G.add_edge(start_idx, end_idx, weight=distance)
 
-                    # คำนวณมุมและเพิ่มเป็นข้อมูลในโหนด
+                    # angle
                     for i in range(len(POSE_CONNECTIONS) - 1):
                         if i + 1 < len(POSE_CONNECTIONS):
                             p1_idx, p2_idx = POSE_CONNECTIONS[i]
@@ -161,14 +169,6 @@ def extract_keypoints_as_graphs(folders, output_pickle):
                                     results.pose_landmarks.landmark[p3_idx].z)
                                 angle = calculate_angle(p1, p2, p3)
                                 G.nodes[p2_idx]['angle'] = angle
-
-                    G.graph['left_arm_label'] = (1 if all(node in set_label for node in left_arm) else 0)
-                    G.graph['right_arm_label'] = (1 if all(node in set_label for node in right_arm) else 0)
-                    G.graph['left_upper_arm_label'] = (1 if all(node in set_label for node in left_upper_arm) else 0)
-                    G.graph['right_upper_arm_label'] = (1 if all(node in set_label for node in right_upper_arm) else 0)
-                    G.graph['left_leg_label'] = (1 if all(node in set_label for node in left_leg) else 0)
-                    G.graph['right_leg_label'] = (1 if all(node in set_label for node in right_leg) else 0)
-
                     
                     graphs.append(G)
 
@@ -176,8 +176,8 @@ def extract_keypoints_as_graphs(folders, output_pickle):
     save_graphs_to_json(graphs, output_json)
 
 
-output_json = "output_graphs.json"
-output_pickle = "output_graphs.pkl"
+output_json = "output_graphs_test.json"
+output_pickle = "output_graphs_test.pkl"
 extract_keypoints_as_graphs(input_folders, output_pickle)
 pose.close()
-print("การประมวลผลเสร็จสมบูรณ์! Export กราฟทั้งหมดเป็น pickle และ JSON เรียบร้อย")
+print("success!!!!!!!!")
