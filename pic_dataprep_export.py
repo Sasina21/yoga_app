@@ -84,22 +84,19 @@ def calculate_angle(a, b, c):
     # แปลงมุมเป็นองศา
     return math.degrees(angle)
 
-
 def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, test_json):
     # graphs = []
     train_graphs = []
     test_graphs = []
 
     for folder in os.listdir(folders):
-        # set_label = set_labels.get(class_idx, [])
         folder_path = os.path.join(folders, folder)
         if not os.path.isdir(folder_path):
             continue
 
-        classification = folder  # ใช้ชื่อโฟลเดอร์ย่อยเป็น classification
+        classification = folder
         filenames = [f for f in os.listdir(folder_path) if f.lower().endswith(('png', 'jpg', 'jpeg'))]
 
-        # Shuffle และแบ่งข้อมูลเป็น 75% train และ 25% test
         random.shuffle(filenames)
         split_idx = int(len(filenames) * 0.75)
         train_files = filenames[:split_idx]
@@ -111,65 +108,123 @@ def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, 
 
                 image = cv2.imread(file_path)
                 if image is None:
+                    print(f"Error loading image: {file_path}")
                     continue
 
                 image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                results = pose.process(image_rgb)
+                # Process image with Mediapipe Pose
+                with mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5) as pose:
+                    results = pose.process(image_rgb)
 
-                if results.pose_landmarks:
-                    height, width, _ = image.shape
-                    # label_list = []
-                    G = nx.Graph()
+                    # Check if any pose landmarks were detected
+                    if results.pose_landmarks:
+                        height, width, _ = image.shape
+                        G = nx.Graph()
+                        G.graph['filename'] = filename
+                        G.graph['classification'] = classification
 
-                    G.graph['filename'] = filename
-                    G.graph['classification'] = classification
+                        # Add nodes for each landmark
+                        for idx, landmark in enumerate(results.pose_landmarks.landmark):
+                            G.add_node(idx, 
+                                x=landmark.x , 
+                                y=landmark.y , 
+                                z=landmark.z)
 
-                    # Node
-                    for idx, landmark in enumerate(results.pose_landmarks.landmark):
-                        G.add_node(idx, 
-                                   x=landmark.x, 
-                                   y=landmark.y, 
-                                   z=landmark.z)
-                    
-                    # Distance
-                    for connection in CUSTOM_POSE_CONNECTIONS:
-                        start_idx, mid_idx = connection
-                        if start_idx < len(results.pose_landmarks.landmark) and mid_idx < len(results.pose_landmarks.landmark):
-                            landmark1 = results.pose_landmarks.landmark[start_idx]
-                            landmark2 = results.pose_landmarks.landmark[mid_idx]
-                            distance = calculate_distance(
-                                landmark1.x, landmark1.y, 
-                                landmark2.x, landmark2.y, 
-                                landmark1.z, landmark2.z
-                            )
-                            G.add_edge(start_idx, mid_idx, weight=distance)
+                        # Distance
+                        for connection in CUSTOM_POSE_CONNECTIONS:
+                            start_idx, mid_idx = connection
+                            if start_idx < len(results.pose_landmarks.landmark) and mid_idx < len(results.pose_landmarks.landmark):
+                                landmark1 = results.pose_landmarks.landmark[start_idx]
+                                landmark2 = results.pose_landmarks.landmark[mid_idx]
+                                distance = calculate_distance(
+                                    landmark1.x, landmark1.y, 
+                                    landmark2.x, landmark2.y, 
+                                    landmark1.z, landmark2.z
+                                )
+                                G.add_edge(start_idx, mid_idx, distance=distance)
+                                
+                                #Angle
+                                related_connections = [conn for conn in CUSTOM_POSE_CONNECTIONS if conn[0] == mid_idx or conn[0] == start_idx]
 
-                            # คำนวณมุมโดยใช้จุด Landmark ที่เกี่ยวข้อง
-                            # หา connection ที่มี mid_idx เป็นจุดเริ่มต้น
-                            related_connections = [conn for conn in CUSTOM_POSE_CONNECTIONS if conn[0] == mid_idx or conn[0] == start_idx]
-
-                            for first, end_idx in related_connections:
-                                if end_idx < len(results.pose_landmarks.landmark) and end_idx != start_idx and end_idx != mid_idx:
-                                    landmark3 = results.pose_landmarks.landmark[end_idx]
-                                    if first == mid_idx:
-                                        # start -> mid -> end
-                                        angle = calculate_angle(
-                                        {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},  # start_idx
-                                        {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
-                                        {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
-                                    )
-                                        G.nodes[mid_idx]['angle'] = angle
-
-                                    else:
-                                        # mid -> start -> end
-                                        angle = calculate_angle(
-                                            {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
+                                for first, end_idx in related_connections:
+                                    if end_idx < len(results.pose_landmarks.landmark) and end_idx != start_idx and end_idx != mid_idx:
+                                        landmark3 = results.pose_landmarks.landmark[end_idx]
+                                        if first == mid_idx:
+                                            # start -> mid -> end
+                                            angle = calculate_angle(
                                             {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},  # start_idx
+                                            {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
                                             {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
                                         )
-                                        G.nodes[start_idx]['angle'] = angle
+                                            G.nodes[mid_idx]['angle'] = angle
 
-                    output_graphs.append(G)
+                                        else:
+                                            # mid -> start -> end
+                                            angle = calculate_angle(
+                                                {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
+                                                {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},  # start_idx
+                                                {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
+                                            )
+                                            G.nodes[start_idx]['angle'] = angle
+
+                        # Store the graph
+                        output_graphs.append(G)
+
+                # results = pose.process(image_rgb)
+
+                # if results.pose_landmarks:
+                #     height, width, _ = image.shape
+                #     G = nx.Graph()
+
+                #     G.graph['filename'] = filename
+                #     G.graph['classification'] = classification
+
+                #     # Node
+                #     for idx, landmark in enumerate(results.pose_landmarks.landmark):
+                #         G.add_node(idx, 
+                #                    x=landmark.x, 
+                #                    y=landmark.y, 
+                #                    z=landmark.z)
+                    
+                #     # Distance
+                #     for connection in CUSTOM_POSE_CONNECTIONS:
+                #         start_idx, mid_idx = connection
+                #         if start_idx < len(results.pose_landmarks.landmark) and mid_idx < len(results.pose_landmarks.landmark):
+                #             landmark1 = results.pose_landmarks.landmark[start_idx]
+                #             landmark2 = results.pose_landmarks.landmark[mid_idx]
+                #             distance = calculate_distance(
+                #                 landmark1.x, landmark1.y, 
+                #                 landmark2.x, landmark2.y, 
+                #                 landmark1.z, landmark2.z
+                #             )
+                #             G.add_edge(start_idx, mid_idx, distance=distance)
+
+                #             # คำนวณมุมโดยใช้จุด Landmark ที่เกี่ยวข้อง
+                #             # หา connection ที่มี mid_idx เป็นจุดเริ่มต้น
+                #             related_connections = [conn for conn in CUSTOM_POSE_CONNECTIONS if conn[0] == mid_idx or conn[0] == start_idx]
+
+                #             for first, end_idx in related_connections:
+                #                 if end_idx < len(results.pose_landmarks.landmark) and end_idx != start_idx and end_idx != mid_idx:
+                #                     landmark3 = results.pose_landmarks.landmark[end_idx]
+                #                     if first == mid_idx:
+                #                         # start -> mid -> end
+                #                         angle = calculate_angle(
+                #                         {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},  # start_idx
+                #                         {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
+                #                         {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
+                #                     )
+                #                         G.nodes[mid_idx]['angle'] = angle
+
+                #                     else:
+                #                         # mid -> start -> end
+                #                         angle = calculate_angle(
+                #                             {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
+                #                             {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},  # start_idx
+                #                             {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
+                #                         )
+                #                         G.nodes[start_idx]['angle'] = angle
+
+                #     output_graphs.append(G)
 
     # Save train and test graphs as both Pickle and JSON
     save_graphs_to_pickle(train_graphs, train_pickle)
