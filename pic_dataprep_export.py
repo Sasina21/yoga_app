@@ -9,7 +9,28 @@ import random
 import matplotlib.pyplot as plt
 
 input_folders = []
-base_folders = "prelim/DATASET1/dataset"
+base_folders = "prelim/DATASET1/symmetric"
+
+left_arm = [11, 13, 15]
+left_upper_arm = [11, 13]
+right_arm = [12, 14, 16]
+right_upper_arm = [12, 14]
+left_leg = [23, 25, 27]
+right_leg = [24, 26, 28]
+body = [11, 12, 23, 24]
+
+critical_points = {
+    "Downdog": left_arm + right_arm + left_leg + right_leg,
+    "Goddess": left_leg + right_leg,
+    "Plank": left_arm + right_arm + left_leg + right_leg ,
+    "Tree": left_leg + right_leg,  
+    "Cobra": left_arm + right_arm + body,
+    "Catcow": left_arm + right_arm + left_leg + right_leg,
+    "Staff": left_leg + right_leg + body,
+    
+    "Sideplank": left_arm,                    
+    "Warrior2": left_leg + right_leg
+}
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
@@ -84,6 +105,17 @@ def calculate_angle(a, b, c):
     # แปลงมุมเป็นองศา
     return math.degrees(angle)
 
+def calculate_direction(a, b):
+    """
+    คำนวณทิศทางระหว่างสองจุด a และ b โดยไม่สนใจ magnitude
+    """
+    direction = {
+        'x': b['x'] - a['x'],
+        'y': b['y'] - a['y'],
+        'z': b['z'] - a['z']
+    }
+    return direction
+
 def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, test_json):
     # graphs = []
     train_graphs = []
@@ -125,23 +157,40 @@ def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, 
 
                         # Add nodes for each landmark
                         for idx, landmark in enumerate(results.pose_landmarks.landmark):
-                            G.add_node(idx, 
-                                x=landmark.x , 
-                                y=landmark.y , 
-                                z=landmark.z)
 
-                        # Distance
+                            if classification in critical_points and idx in critical_points[classification]:
+                                crit = 1
+                            else:
+                                crit = 0
+
+                            G.add_node(idx, 
+                                x=landmark.x, 
+                                y=landmark.y, 
+                                z=landmark.z,
+                                crit = crit
+                                )
+                            
                         for connection in CUSTOM_POSE_CONNECTIONS:
                             start_idx, mid_idx = connection
                             if start_idx < len(results.pose_landmarks.landmark) and mid_idx < len(results.pose_landmarks.landmark):
                                 landmark1 = results.pose_landmarks.landmark[start_idx]
                                 landmark2 = results.pose_landmarks.landmark[mid_idx]
+
+                                # Distance
                                 distance = calculate_distance(
                                     landmark1.x, landmark1.y, 
                                     landmark2.x, landmark2.y, 
                                     landmark1.z, landmark2.z
                                 )
                                 G.add_edge(start_idx, mid_idx, distance=distance)
+
+                                # Direction
+                                if connection not in [(12, 24), (11, 23)]:
+                                    direction = calculate_direction(
+                                        {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},
+                                        {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z}
+                                    )
+                                    G.nodes[start_idx]['dir'] = direction
                                 
                                 #Angle
                                 related_connections = [conn for conn in CUSTOM_POSE_CONNECTIONS if conn[0] == mid_idx or conn[0] == start_idx]
@@ -166,6 +215,26 @@ def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, 
                                                 {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
                                             )
                                             G.nodes[start_idx]['angle'] = angle
+
+                        
+                        # Distance landmark 12-13 and 23-24
+                        landmark12 = results.pose_landmarks.landmark[12]
+                        landmark13 = results.pose_landmarks.landmark[13]
+                        landmark23 = results.pose_landmarks.landmark[23]
+                        landmark24 = results.pose_landmarks.landmark[24]
+                        distance_shoulder = calculate_distance(
+                            landmark12.x, landmark12.y, 
+                            landmark13.x, landmark13.y, 
+                            landmark12.z, landmark13.z
+                        )
+                        distance_waist = calculate_distance(
+                            landmark23.x, landmark23.y, 
+                            landmark24.x, landmark24.y, 
+                            landmark23.z, landmark24.z
+                        )
+
+                        G.add_edge(12, 13, distance=distance_shoulder)
+                        G.add_edge(23, 24, distance=distance_waist)
 
                         # Store the graph
                         output_graphs.append(G)
@@ -236,10 +305,10 @@ def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, 
 
 
 # Output files
-output_train_pickle = "svm_datatrain.pkl"
-output_test_pickle = "svm_datatest.pkl"
-output_train_json = "svm_datatrain.json"
-output_test_json = "svm_datatest.json"
+output_train_pickle = "sym_svm_datatrain.pkl"
+output_test_pickle = "sym_svm_datatest.pkl"
+output_train_json = "sym_svm_datatrain.json"
+output_test_json = "sym_svm_datatest.json"
 
 extract_keypoints_as_graphs(base_folders, output_train_pickle, output_test_pickle, output_train_json, output_test_json)
 pose.close()

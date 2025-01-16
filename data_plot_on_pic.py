@@ -10,8 +10,25 @@ import math
 
 selected_landmarks = [11, 12, 13, 14, 23, 24, 25, 26]
 
+left_arm = [11, 13, 15]
+left_upper_arm = [11, 13]
+right_arm = [12, 14, 16]
+right_upper_arm = [12, 14]
+left_leg = [23, 25, 27]
+right_leg = [24, 26, 28]
+body = [11, 12, 23, 24]
+
+critical_points = {
+    0: left_arm + right_leg + left_leg + right_leg,     #Downdog
+    1: left_leg + right_leg,                            #Goddess
+    2: left_arm + right_leg + left_leg + right_leg ,     #Plank
+    3: left_arm,                                        #Side Plank
+    4: left_leg + right_leg,                            #Tree
+    5: left_leg + right_leg                             #Warrior2
+}
+
 # Load image
-filename = 'prelim/DATASET1/dataset/Goddess/00000004.jpg'
+filename = 'prelim/DATASET1/dataset/Downdog/downdog55.jpg'
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
@@ -95,64 +112,86 @@ def load_graphs_from_pickle(pickle_path):
     return graphs
 
 
-def plot_random_graph_with_image(graphs, base_folder):
+def plot_random_graph_with_image(graphs, filename):
     # เลือกกราฟสุ่ม
-    random_graph = random.choice(graphs)
-    filename = random_graph.graph['filename']
-    classification = random_graph.graph['classification']
+    # random_graph = random.choice(graphs)
+    # filename = random_graph.graph['filename']
+    # classification = random_graph.graph['classification']
 
-    # สร้าง path ไปยังภาพ
-    file_path = os.path.join(base_folder, classification, filename)
+    # # สร้าง path ไปยังภาพ
+    # file_path = os.path.join(base_folder, classification, filename)
+    target_graph = None
+    for graph in graphs:
+        if graph.graph['filename'] == os.path.basename(filename):
+            target_graph = graph
+            break
 
     # โหลดภาพ
-    image = cv2.imread(file_path)
-    if image is None:
-        print(f"Cannot read image: {file_path}")
-        return
-    annotated_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    height, width, _ = annotated_image.shape
+    image = cv2.imread(filename)
+    height, width, _ = image.shape
 
     # วาด landmarks บนภาพ
-    for node_id, node_data in random_graph.nodes(data=True):
+    for node_id, node_data in target_graph.nodes(data=True):
         # ตรวจสอบว่า x, y เป็น normalized หรือ absolute
         x = int(node_data['x'] * width if node_data['x'] <= 1 else node_data['x'])
         y = int(node_data['y'] * height if node_data['y'] <= 1 else node_data['y'])
 
         # วาดจุด landmark
-        cv2.circle(annotated_image, (x, y), 5, (0, 255, 0), -1)
-        cv2.putText(annotated_image, str(node_id), (x + 5, y - 5),
+        cv2.circle(image, (x, y), 5, (0, 255, 0), -1)
+        cv2.putText(image, str(node_id), (x + 5, y - 5),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
 
         # วาด angle หากมี
         if 'angle' in node_data:
             angle = node_data['angle']
-            cv2.putText(annotated_image, f"{angle:.1f}°", (x - 20, y - 20),
+            cv2.putText(image, f"{angle:.1f}°", (x - 20, y - 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
             if node_id in selected_landmarks:
                 print(f"angle landmarks{node_id}: {angle:.1f}")
 
     # วาด connections จาก edges
-    for u, v, edge_data in random_graph.edges(data=True):
-        start_x = int(random_graph.nodes[u]['x'] * width if random_graph.nodes[u]['x'] <= 1 else random_graph.nodes[u]['x'])
-        start_y = int(random_graph.nodes[u]['y'] * height if random_graph.nodes[u]['y'] <= 1 else random_graph.nodes[u]['y'])
-        end_x = int(random_graph.nodes[v]['x'] * width if random_graph.nodes[v]['x'] <= 1 else random_graph.nodes[v]['x'])
-        end_y = int(random_graph.nodes[v]['y'] * height if random_graph.nodes[v]['y'] <= 1 else random_graph.nodes[v]['y'])
+    for u, v, edge_data in target_graph.edges(data=True):
+        start_x = int(target_graph.nodes[u]['x'] * width if target_graph.nodes[u]['x'] <= 1 else target_graph.nodes[u]['x'])
+        start_y = int(target_graph.nodes[u]['y'] * height if target_graph.nodes[u]['y'] <= 1 else target_graph.nodes[u]['y'])
+        end_x = int(target_graph.nodes[v]['x'] * width if target_graph.nodes[v]['x'] <= 1 else target_graph.nodes[v]['x'])
+        end_y = int(target_graph.nodes[v]['y'] * height if target_graph.nodes[v]['y'] <= 1 else target_graph.nodes[v]['y'])
         weight = edge_data.get('weight', 0)  # ระยะทาง (weight)
 
         # วาดเส้นระหว่าง landmarks
-        cv2.line(annotated_image, (start_x, start_y), (end_x, end_y), (255, 0, 0), 2)
+        cv2.line(image, (start_x, start_y), (end_x, end_y), (255, 0, 0), 2)
 
         # แสดงระยะ (weight) บนเส้น
         mid_x, mid_y = (start_x + end_x) // 2, (start_y + end_y) // 2
-        cv2.putText(annotated_image, f"{weight:.1f}", (mid_x, mid_y),
+        cv2.putText(image, f"{weight:.1f}", (mid_x, mid_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
 
     # แสดงภาพ
     plt.figure(figsize=(10, 10))
-    plt.imshow(annotated_image)
-    plt.title(f"Class: {classification}, Filename: {filename}")
+    plt.imshow(image)
+    plt.title(f"Filename: {filename}")
     plt.axis("off")
     plt.show()
+
+def check_side_plank_side(landmarks):
+    # ดึงค่าตำแหน่งสำคัญ
+    left_hip = landmarks["LEFT_HIP"]
+    right_hip = landmarks["RIGHT_HIP"]
+    left_shoulder = landmarks["LEFT_SHOULDER"]
+    right_shoulder = landmarks["RIGHT_SHOULDER"]
+    left_wrist = landmarks["LEFT_WRIST"]
+    right_wrist = landmarks["RIGHT_WRIST"]
+
+    # คำนวณความสูงสะโพก
+    if left_hip[1] > right_hip[1]:
+        return "Side plank ขวา (ใช้แขนขวารับน้ำหนัก)"
+    elif right_hip[1] > left_hip[1]:
+        return "Side plank ซ้าย (ใช้แขนซ้ายรับน้ำหนัก)"
+    else:
+        # ตรวจสอบตำแหน่งข้อมือเพิ่มเติม
+        if left_wrist[1] < right_wrist[1]:
+            return "Side plank ซ้าย (ใช้แขนซ้ายรับน้ำหนัก)"
+        else:
+            return "Side plank ขวา (ใช้แขนขวารับน้ำหนัก)"
 
 def extract_keypoints_as_graphs(filename):
     # Check if the image is loaded properly
@@ -180,19 +219,6 @@ def extract_keypoints_as_graphs(filename):
                            x=landmark.x , 
                            y=landmark.y , 
                            z=landmark.z)
-                    
-                # # Add edges and calculate distances
-                # for connection in CUSTOM_POSE_CONNECTIONS:
-                #     start_idx, mid_idx = connection
-                #     if start_idx < len(results.pose_landmarks.landmark) and mid_idx < len(results.pose_landmarks.landmark):
-                #      landmark1 = results.pose_landmarks.landmark[start_idx]
-                #      landmark2 = results.pose_landmarks.landmark[mid_idx]
-                #      distance = calculate_distance(
-                #         landmark1.x , landmark1.y , 
-                #         landmark2.x , landmark2.y , 
-                #         landmark1.z, landmark2.z
-                #     )
-                #     G.add_edge(start_idx, mid_idx, weight=distance)
 
                 # Distance
                 for connection in CUSTOM_POSE_CONNECTIONS:
@@ -288,13 +314,13 @@ def extract_keypoints_as_graphs(filename):
 
 
 
-# # โหลดจาก JSON
+# โหลดจาก JSON
 # train_graphs = load_graphs_from_json("svm_datatrain.json")
 
 # หรือโหลดจาก Pickle
 # train_graphs = load_graphs_from_pickle("train_graphs.pkl")
 
 # เรียกฟังก์ชันเพื่อพลอต
-# plot_random_graph_with_image(train_graphs, base_folders)
+# plot_random_graph_with_image(train_graphs, filename)
 
 extract_keypoints_as_graphs(filename)
