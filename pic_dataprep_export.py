@@ -27,7 +27,7 @@ critical_points = {
     "Cobra": left_arm + right_arm + body,
     "Catcow": left_arm + right_arm + left_leg + right_leg,
     "Staff": left_leg + right_leg + body,
-    
+
     "Sideplank": left_arm,                    
     "Warrior2": left_leg + right_leg
 }
@@ -82,15 +82,17 @@ def calculate_distance(x1, y1, x2, y2, z1=0, z2=0):
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
 
 def calculate_angle(a, b, c):
-    ba = [(a['x'] - b['x']), (a['y'] - b['y']), (a['z'] - b['z'])]
-    bc = [(c['x'] - b['x']), (c['y'] - b['y']), (c['z'] - b['z'])]
+    # ba = [(a['x'] - b['x']), (a['y'] - b['y']), (a['z'] - b['z'])]
+    # bc = [(c['x'] - b['x']), (c['y'] - b['y']), (c['z'] - b['z'])]
+    ba = [(a['x'] - b['x']), (a['y'] - b['y'])]
+    bc = [(c['x'] - b['x']), (c['y'] - b['y'])]
 
     # คำนวณ dot product
-    dot_product = sum(ba[i] * bc[i] for i in range(3))
+    dot_product = sum(ba[i] * bc[i] for i in range(2))
 
     # คำนวณขนาด (magnitude) ของเวกเตอร์
-    magnitude_ba = math.sqrt(sum(ba[i] ** 2 for i in range(3)))
-    magnitude_bc = math.sqrt(sum(bc[i] ** 2 for i in range(3)))
+    magnitude_ba = math.sqrt(sum(ba[i] ** 2 for i in range(2)))
+    magnitude_bc = math.sqrt(sum(bc[i] ** 2 for i in range(2)))
 
     # ตรวจสอบกรณี magnitude เป็น 0
     if magnitude_ba == 0 or magnitude_bc == 0:
@@ -101,20 +103,54 @@ def calculate_angle(a, b, c):
 
     # หามุมจาก cos (จำกัดค่า -1 ถึง 1)
     angle = math.acos(max(-1, min(1, cos_angle)))
-
-    # แปลงมุมเป็นองศา
-    return math.degrees(angle)
+    result = math.degrees(angle)
+    
+    return result
 
 def calculate_direction(a, b):
-    """
-    คำนวณทิศทางระหว่างสองจุด a และ b โดยไม่สนใจ magnitude
-    """
     direction = {
         'x': b['x'] - a['x'],
         'y': b['y'] - a['y'],
         'z': b['z'] - a['z']
     }
     return direction
+
+def calculate_twist_angle(landmarks):
+
+    left_shoulder = landmarks[11]
+    right_shoulder = landmarks[12]
+    left_hip = landmarks[23]
+    right_hip = landmarks[24]
+    
+    shoulder_vector = [
+        right_shoulder.x - left_shoulder.x,
+        right_shoulder.y - left_shoulder.y,
+        right_shoulder.z - left_shoulder.z
+    ]
+    
+    hip_vector = [
+        right_hip.x - left_hip.x,
+        right_hip.y - left_hip.y,
+        right_hip.z - left_hip.z
+    ]
+    
+    # คำนวณ dot product และ magnitude
+    dot_product = sum(a * b for a, b in zip(shoulder_vector, hip_vector))
+    shoulder_magnitude = math.sqrt(sum(a**2 for a in shoulder_vector))
+    hip_magnitude = math.sqrt(sum(b**2 for b in hip_vector))
+    
+    if shoulder_magnitude == 0 or hip_magnitude == 0:
+        twist_angle = 0
+    else:
+        cos_angle = dot_product / (shoulder_magnitude * hip_magnitude)
+        cos_angle = max(-1.0, min(1.0, cos_angle))  # Clamp ค่าให้อยู่ในช่วง [-1, 1]
+        twist_angle = math.degrees(math.acos(cos_angle)) 
+
+    center_x = (left_shoulder.x + right_shoulder.x) / 2
+    center_y = (left_shoulder.y + right_shoulder.y) / 2
+    center_z = (left_shoulder.z + right_shoulder.z) / 2
+
+    return twist_angle, center_x, center_y, center_z
 
 def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, test_json):
     # graphs = []
@@ -217,24 +253,33 @@ def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, 
                                             G.nodes[start_idx]['angle'] = angle
 
                         
-                        # Distance landmark 12-13 and 23-24
+                        # Distance landmark(11-12) and (23-24)
+                        landmark11 = results.pose_landmarks.landmark[11]
                         landmark12 = results.pose_landmarks.landmark[12]
-                        landmark13 = results.pose_landmarks.landmark[13]
                         landmark23 = results.pose_landmarks.landmark[23]
                         landmark24 = results.pose_landmarks.landmark[24]
                         distance_shoulder = calculate_distance(
+                            landmark11.x, landmark11.y, 
                             landmark12.x, landmark12.y, 
-                            landmark13.x, landmark13.y, 
-                            landmark12.z, landmark13.z
+                            landmark11.z, landmark12.z
                         )
                         distance_waist = calculate_distance(
                             landmark23.x, landmark23.y, 
                             landmark24.x, landmark24.y, 
                             landmark23.z, landmark24.z
                         )
-
-                        G.add_edge(12, 13, distance=distance_shoulder)
+                        G.add_edge(11, 12, distance=distance_shoulder)
                         G.add_edge(23, 24, distance=distance_waist)
+
+                        # # Add LANDMARK33 for twisting pose landmark(12-13) and (23-24)
+                        # twist_angle, center_x, center_y, center_z = calculate_twist_angle(results.pose_landmarks.landmark)
+                        # G.add_node(33, 
+                        #         x = center_x, 
+                        #         y = center_y, 
+                        #         z = center_z,
+                        #         angle = twist_angle,
+                        #         crit = 1 if twist_angle > 5 else 0
+                        #         )
 
                         # Store the graph
                         output_graphs.append(G)
