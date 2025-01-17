@@ -218,15 +218,21 @@ def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, 
                                     landmark2.x, landmark2.y, 
                                     landmark1.z, landmark2.z
                                 )
-                                G.add_edge(start_idx, mid_idx, distance=distance)
-
                                 # Direction
-                                if connection not in [(12, 24), (11, 23)]:
-                                    direction = calculate_direction(
-                                        {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},
-                                        {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z}
-                                    )
-                                    G.nodes[start_idx]['dir'] = direction
+                                direction = calculate_direction(
+                                    {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},
+                                    {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z}
+                                )
+
+                                G.add_edge(start_idx, mid_idx, distance = distance, dir = direction)
+
+                                # # Direction
+                                # if connection not in [(12, 24), (11, 23)]:
+                                #     direction = calculate_direction(
+                                #         {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},
+                                #         {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z}
+                                #     )
+                                # G.nodes[start_idx]['dir'] = direction
                                 
                                 #Angle
                                 related_connections = [conn for conn in CUSTOM_POSE_CONNECTIONS if conn[0] == mid_idx or conn[0] == start_idx]
