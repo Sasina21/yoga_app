@@ -23,22 +23,21 @@ st.title("Yoga")
 # uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
 
-image_path = "Images/downdog.png"
-image_pil = Image.open(image_path)
+# image_path = "Images/downdog.png"
+# image_pil = Image.open(image_path)
 
-image_np = np.array(image_pil)
+# image_np = np.array(image_pil)
 
 # annotated_image = process_pose_image(image_np)
 
 cols = st.columns(2)
 
-with cols[0]:
-    st.image(
-        # annotated_image,
-        image_np, 
-        caption="Annotated Image with Mediapipe Pose", 
-        use_container_width=True
-    )
+# with cols[0]:
+#     st.image(
+#         annotated_image, 
+#         caption="Annotated Image with Mediapipe Pose", 
+#         use_container_width=True
+#     )
 with cols[1]:
     # webrtc_streamer(key="sample")
     webrtc_streamer(key="example", media_stream_constraints={"video": True,"audio": False })
