@@ -1,2 +1,6 @@
+numpy
 streamlit
 streamlit-webrtc
+pillow
+mediapipe
+opencv-python
