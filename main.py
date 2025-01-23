@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 from streamlit_webrtc import webrtc_streamer
-from skeleton import process_pose_image
+# from skeleton import process_pose_image
 from PIL import Image
 
 
@@ -28,13 +28,14 @@ image_pil = Image.open(image_path)
 
 image_np = np.array(image_pil)
 
-annotated_image = process_pose_image(image_np)
+# annotated_image = process_pose_image(image_np)
 
 cols = st.columns(2)
 
 with cols[0]:
     st.image(
-        annotated_image, 
+        # annotated_image,
+        image_np, 
         caption="Annotated Image with Mediapipe Pose", 
         use_container_width=True
     )
