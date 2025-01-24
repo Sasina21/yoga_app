@@ -31,7 +31,7 @@ time_list = []
 
 is_paused = False
 
-cap = cv2.VideoCapture('test.mp4')
+cap = cv2.VideoCapture('test1.mp4')
 
 def convert_ms_to_minutes(ms):
     sec = ms / 1000  
@@ -55,8 +55,6 @@ while cap.isOpened():
         if current_time - previous_time >= 1000:
             previous_time = current_time
 
-                # landmark_drawing_spec = mp_drawing_styles.get_default_pose_landmarks_style()
-
                 # each landmark
             for i, landmark in enumerate(results.pose_landmarks.landmark):
 
@@ -79,15 +77,15 @@ while cap.isOpened():
                     landmark_drawing_spec[i] = landmark_drawing_spec_red
                     #print(f"landmark: {i} movement:  {movement}")
 
-            print("จำนวนจุดที่ไม่ขยับ: ", len(no_movement_list))
+            print("number of stationary points: ", len(no_movement_list))
             if len(no_movement_list) >= body_threshold:
                 time_count += 1
-                print(time_count)
+                print("no move_time count: ", time_count)
                 if start_time is None:
                     start_time = convert_ms_to_minutes(cap.get(cv2.CAP_PROP_POS_MSEC))
                     print("start_time: ", start_time)              
             else:
-                print("ไม่นิ่ง")
+                print("Moving")
                 # no movement < 80%  -> Reset
                 time_count = 0
                 start_time = None
@@ -113,7 +111,7 @@ while cap.isOpened():
      
     if time_count >= time_count_threshold and not start_time in time_list:
         time_list.append(start_time)
-        print("บันทึก ", start_time)
+        print("Saved! ", start_time)
         while True:
             if cv2.waitKey(1) & 0xFF == 32:  # กด space bar อีกครั้งเพื่อเล่นต่อ
                 break
@@ -131,3 +129,18 @@ print("Time List:", time_list)
 # ปิดการเชื่อมต่อ
 cap.release()
 cv2.destroyAllWindows()
+
+
+# cap = cv.VideoCapture("./video.mp4")
+# fps = cap.get(cv.CAP_PROP_FPS)      # OpenCV v2.x used "CV_CAP_PROP_FPS"
+# frame_count = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
+# duration = frame_count/fps
+
+# print('fps = ' + str(fps))
+# print('number of frames = ' + str(frame_count))
+# print('duration (S) = ' + str(duration))
+# minutes = int(duration/60)
+# seconds = duration%60
+# print('duration (M:S) = ' + str(minutes) + ':' + str(seconds))
+
+# cap.release()

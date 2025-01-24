@@ -29,7 +29,8 @@ critical_points = {
 
 # Load image
 # filename = 'prelim/DATASET1/dataset/Tree/tree180.jpg'
-filename = '/Users/ngunnnn/Downloads/ccd06167.jpg'
+filename = '/Users/ngunnnn/Downloads/warrior2.jpg'
+filename2 = '/Users/ngunnnn/Downloads/WARRIOR-1-hero_1024x.jpg'
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
@@ -397,8 +398,6 @@ def extract_keypoints_as_graphs(filename):
 
                 # Display the annotated image
                 cv2.imshow(filename, image)
-                cv2.waitKey(0)
-                cv2.destroyAllWindows()
 
             #     # Optionally save the annotated image
             #     cv2.imwrite('00_annotated.jpg', annotated_image)
@@ -419,3 +418,6 @@ def extract_keypoints_as_graphs(filename):
 # plot_random_graph_with_image(train_graphs, filename)
 
 extract_keypoints_as_graphs(filename)
+extract_keypoints_as_graphs(filename2)
+cv2.waitKey(0)
+cv2.destroyAllWindows()

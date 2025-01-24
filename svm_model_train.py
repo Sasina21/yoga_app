@@ -1,98 +1,61 @@
 import json
-import numpy as np
-import joblib
+import pandas as pd
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler, LabelEncoder
+import joblib
 from sklearn.model_selection import GridSearchCV
 
-# โหลดข้อมูลจากไฟล์
-with open('output_graphs.json', 'r') as f:
+# Load JSON file
+file_path = 'path_to_your_file/svm_datatrain.json'  # แก้ไข path ของไฟล์
+with open(file_path, 'r') as f:
     data = json.load(f)
 
-# เตรียมข้อมูล
-X = []  # เก็บ input (angle ของ nodes)
-y_combined = []  # เก็บ output label ที่รวมกัน
-
-selected_landmarks = [11, 12, 23, 24, 25, 26, 27, 28]
-
+# Extracting angles, distances, and classifications
+records = []
 for item in data:
-    angles = []
-    for node in item['nodes']:
-        angle = node.get('angle', 0)
-        angles.append(angle)  # เก็บเฉพาะ angle
-    X.append(angles)
-
-    # angles_positions = []
-    # for i, node in enumerate(item['nodes']):
-    #     if i in selected_landmarks:
-    #         angle = node.get('angle', 0)
-    #         x = node.get('x', 0)
-    #         y = node.get('y', 0)
-    #         z = node.get('z', 0)
-    #         angles_positions.extend([angle, x, y, z])  # รวม angle และตำแหน่ง x, y, z
-    # X.append(angles_positions)
+    classification = item["classification"]
+    # ดึงค่า angle จาก nodes
+    angles = [node["angle"] for node in item["nodes"] if "angle" in node]
+    # ดึงค่า distance (weight) จาก edges
+    distances = [edge["weight"] for edge in item["edges"]]
     
-    # # สร้าง output label ใหม่
-    # left = item['left_leg_label']
-    # right = item['right_leg_label']
-    # if left == 1 and right == 0:
-    #     y_combined.append("left_leg")
-    # elif left == 0 and right == 1:
-    #     y_combined.append("right_leg")
-    # elif left == 1 and right == 1:
-    #     y_combined.append("left_leg+right_leg")
-    # else:
-    #     y_combined.append("none")  # กรณีที่ไม่มีทั้งสองข้าง
+    # รวมค่า angle และ distance เพื่อใช้เป็น feature
+    for angle, distance in zip(angles, distances):
+        records.append({"angle": angle, "distance": distance, "classification": classification})
 
-    # สร้าง output label ใหม่
-    left_leg = item.get('left_leg_label',0)
-    right_leg = item.get('right_leg_label',0)
-    left_arm = item.get('left_arm_label', 0)
-    left_upper_arm = item.get('left_upper_arm_label', 0)
-    right_arm = item.get('right_arm_label', 0)
-    right_upper_arm = item.get('right_upper_arm_label', 0)
+# Convert to DataFrame
+df = pd.DataFrame(records)
 
-    labels_combined = {
-        'left_arm': left_arm,
-        'left_upper_arm': left_upper_arm,
-        'right_arm': right_arm,
-        'right_upper_arm': right_upper_arm,
-        'left_leg': left_leg,
-        'right_leg': right_leg
-    }
+# Features and Target
+X = df[['angle', 'distance']]
+y = df['classification']
 
-    y_combined.append(labels_combined)
-
-X = np.array(X)
-y_combined = np.array(y_combined)
-
-# # แปลง output label ให้เป็นตัวเลขสำหรับ SVM
-# label_encoder = LabelEncoder()
-# y_encoded = label_encoder.fit_transform(y_combined)
-label_encoder = LabelEncoder()
-y_encoded = label_encoder.fit_transform([str(label) for label in y_combined])
-
-# สเกลข้อมูลเพื่อให้เหมาะสมกับ SVM
+# Scale the features
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
-# ใช้ Grid Search เพื่อค้นหาค่าพารามิเตอร์ที่ดีที่สุด
+# Encode the labels
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(y)
+
+# Train the SVM model
 param_grid = {
     'C': [0.1, 1, 10, 100],
     'gamma': [1, 0.1, 0.01, 0.001],
     'kernel': ['rbf', 'linear']
 }
 
-grid = GridSearchCV(SVC(), param_grid, refit=True, verbose=2, cv=5)
+# Train the model with Grid Search
+grid = GridSearchCV(SVC(), param_grid, refit=True, verbose=0)
 grid.fit(X_scaled, y_encoded)
 
-# โมเดลที่ดีที่สุดจาก Grid Search
+# Get the best model
 best_model = grid.best_estimator_
-print("Best Parameters:", grid.best_params_)
+print("Model training complete. Best parameters:", grid.best_params_)
 
-# บันทึกโมเดล, scaler และ label encoder ลงไฟล์
+# Save the model, scaler, and label encoder
 joblib.dump(best_model, 'svm_leg_model.pkl')
 joblib.dump(scaler, 'scaler.pkl')
 joblib.dump(label_encoder, 'label_encoder.pkl')
 
-print("Training completed. Best model, scaler, and label encoder saved.")
+print("The model, scaler, and label encoder have been saved.")
