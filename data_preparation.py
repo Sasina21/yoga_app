@@ -68,106 +68,118 @@ def export_file(graphs, train_pickle, test_pickle, train_json, test_json):
     
     print(f"Train graphs: {len(train_graphs)}, Test graphs: {len(test_graphs)}")
 
-def extract_graph(image: np.ndarray, classification=None, filename=None):
+def get_landmarks(image: np.ndarray, filename=None):
+
     if image is None:
-        print(f"Error loading image: data_preparation")
+        print("Error: Image is None :{filename}")
         return None
-
+    
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
+    
     with mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5) as pose:
         results = pose.process(image_rgb)
-
+        
         if not results.pose_landmarks:
             return None
+        
+        landmarks = [
+            {"x": lm.x, "y": lm.y, "z": lm.z} 
+            for lm in results.pose_landmarks.landmark
+        ]
+        
+        return landmarks
 
-        height, width, _ = image.shape
-        G = nx.Graph()
-        G.graph['filename'] = filename
+def extract_graph(landmarks, classification=None, filename=None):
+    if landmarks is None:
+        print("Error: Landmarks are None")
+        return None
+
+    G = nx.Graph()
+    G.graph['filename'] = filename
 
 
-        if classification:
-            G.graph['classification'] = classification
-            # Node and Critical points
-            for idx, landmark in enumerate(results.pose_landmarks.landmark):
-                crit = 1 if classification and classification in CRITICAL_POINTS and idx in CRITICAL_POINTS[classification] else 0
-                G.add_node(idx, 
-                           x=landmark.x, 
-                           y=landmark.y, 
-                           z=landmark.z, 
-                           crit=crit)
-        else:
-            # Node
-            for idx, landmark in enumerate(results.pose_landmarks.landmark):
-                G.add_node(idx, 
-                           x=landmark.x, 
-                           y=landmark.y, 
-                           z=landmark.z)
+    if classification:
+        G.graph['classification'] = classification
+        # Node and Critical points
+        for idx, lm in enumerate(landmarks):
+            crit = 1 if classification and classification in CRITICAL_POINTS and idx in CRITICAL_POINTS[classification] else 0
+            G.add_node(idx, 
+                       x=lm['x'], 
+                       y=lm['y'], 
+                       z=lm['z'], 
+                       crit=crit)
+    else:
+        # Node
+        for idx, lm in enumerate(landmarks):
+            G.add_node(idx,
+                        x=lm['x'], 
+                        y=lm['y'], 
+                        z=lm['z'])
 
-        for connection in PoseMath.CUSTOM_POSE_CONNECTIONS:
-            start_idx, mid_idx = connection
-            if start_idx < len(results.pose_landmarks.landmark) and mid_idx < len(results.pose_landmarks.landmark):
-                landmark1 = results.pose_landmarks.landmark[start_idx]
-                landmark2 = results.pose_landmarks.landmark[mid_idx]
+    for connection in PoseMath.CUSTOM_POSE_CONNECTIONS:
+        start_idx, mid_idx = connection
+        if start_idx < len(landmarks) and mid_idx < len(landmarks):
+            lm1 = landmarks[start_idx]
+            lm2 = landmarks[mid_idx]
 
-                # Distance
-                distance = PoseMath.calculate_distance(
-                    landmark1.x, landmark1.y, 
-                    landmark2.x, landmark2.y, 
-                    landmark1.z, landmark2.z
-                )
-                # Direction
-                direction = PoseMath.calculate_direction(
-                    {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},
-                    {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z}
-                )
+            # Distance
+            distance = PoseMath.calculate_distance(
+                lm1['x'], lm1['y'], 
+                lm2['x'], lm2['y'], 
+                lm1['z'], lm2['z']
+            )
+            # Direction
+            direction = PoseMath.calculate_direction(
+                {'x': lm1['x'], 'y': lm1['y'], 'z': lm1['z']},
+                {'x': lm2['x'], 'y': lm2['y'], 'z': lm2['z']}
+            )
 
-                G.add_edge(start_idx, mid_idx, distance = distance, dir = direction)
-                
-                #Angle
-                related_connections = [conn for conn in PoseMath.CUSTOM_POSE_CONNECTIONS if conn[0] == mid_idx or conn[0] == start_idx]
+            G.add_edge(start_idx, mid_idx, distance = distance, dir = direction)
+            
+            #Angle
+            related_connections = [conn for conn in PoseMath.CUSTOM_POSE_CONNECTIONS if conn[0] == mid_idx or conn[0] == start_idx]
 
-                for first, end_idx in related_connections:
-                    if end_idx < len(results.pose_landmarks.landmark) and end_idx != start_idx and end_idx != mid_idx:
-                        landmark3 = results.pose_landmarks.landmark[end_idx]
-                        if first == mid_idx:
-                            # start -> mid -> end
-                            angle = PoseMath.calculate_angle(
-                            {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},  # start_idx
-                            {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
-                            {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
+            for first, end_idx in related_connections:
+                if end_idx < len(landmarks) and end_idx != start_idx and end_idx != mid_idx:
+                    lm3 = landmarks[end_idx]
+                    if first == mid_idx:
+                        # start -> mid -> end
+                        angle = PoseMath.calculate_angle(
+                        {'x': lm1['x'], 'y': lm1['y'], 'z': lm1['z']},  # start_idx
+                        {'x': lm2['x'], 'y': lm2['y'], 'z': lm2['z']},  # mid_idx
+                        {'x': lm3['x'], 'y': lm3['y'], 'z': lm3['z']},  # end_idx
+                    )
+                        G.nodes[mid_idx]['angle'] = angle
+
+                    else:
+                        # mid -> start -> end
+                        angle = PoseMath.calculate_angle(
+                            {'x': lm2['x'], 'y': lm2['y'], 'z': lm2['z']},  # mid_idx
+                            {'x': lm1['x'], 'y': lm1['y'], 'z': lm1['z']},  # start_idx
+                            {'x': lm3['x'], 'y': lm3['y'], 'z': lm3['z']},  # end_idx
                         )
-                            G.nodes[mid_idx]['angle'] = angle
+                        G.nodes[start_idx]['angle'] = angle
 
-                        else:
-                            # mid -> start -> end
-                            angle = PoseMath.calculate_angle(
-                                {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
-                                {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},  # start_idx
-                                {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
-                            )
-                            G.nodes[start_idx]['angle'] = angle
-
-        
-        # Distance landmark(11-12) and (23-24)
-        landmark11 = results.pose_landmarks.landmark[11]
-        landmark12 = results.pose_landmarks.landmark[12]
-        landmark23 = results.pose_landmarks.landmark[23]
-        landmark24 = results.pose_landmarks.landmark[24]
-        distance_shoulder = PoseMath.calculate_distance(
-            landmark11.x, landmark11.y, 
-            landmark12.x, landmark12.y, 
-            landmark11.z, landmark12.z
-        )
-        distance_waist = PoseMath.calculate_distance(
-            landmark23.x, landmark23.y, 
-            landmark24.x, landmark24.y, 
-            landmark23.z, landmark24.z
-        )
-        G.add_edge(11, 12, distance=distance_shoulder)
-        G.add_edge(23, 24, distance=distance_waist)
-        
-        return G
+    
+    # Distance landmark(11-12) and (23-24)
+    lm11 = landmarks[11]
+    lm12 = landmarks[12]
+    lm23 = landmarks[23]
+    lm24 = landmarks[24]
+    distance_shoulder = PoseMath.calculate_distance(
+        lm11['x'], lm11['y'], 
+        lm12['x'], lm12['y'], 
+        lm11['z'], lm12['z']
+    )
+    distance_waist = PoseMath.calculate_distance(
+        lm23['x'], lm23['y'], 
+        lm24['x'], lm24['y'], 
+        lm23['z'], lm24['z']
+    )
+    G.add_edge(11, 12, distance=distance_shoulder)
+    G.add_edge(23, 24, distance=distance_waist)
+    
+    return G
 
 if __name__ == "__main__":
     # Input folders
@@ -189,10 +201,8 @@ if __name__ == "__main__":
             if filename.lower().endswith(('png', 'jpg', 'jpeg')):  
                 image_path = os.path.join(classification_path, filename)
                 image = cv2.imread(image_path)
-                if image is None:
-                    print(f"Error loading image: {image_path}")
-                    continue
-                graph = extract_graph(image, folder_name, filename)
+                landmarks = get_landmarks(image)
+                graph = extract_graph(landmarks, folder_name, filename)
                 if graph:
                     graphs.append(graph)
                     print(f"Processed: {filename}")

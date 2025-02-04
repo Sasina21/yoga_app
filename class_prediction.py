@@ -2,25 +2,14 @@ import os
 import joblib
 import pandas as pd
 import cv2
-from data_preparation import extract_graph
+from data_preparation import extract_graph, get_landmarks
 
 # Load trained model, scaler, and label encoder
 best_model = joblib.load('svm_model.joblib')
 scaler = joblib.load('scaler.joblib')
 label_encoder = joblib.load('label_encoder.joblib')
 
-def predict_pose(image):
-    if image is None:
-        print(f"Error loading image: class_prediction")
-        return None
-    
-    graph = extract_graph(image)
-    
-    if not graph:
-        print(f"Failed to process graph")
-        return None
-    
-    # Extract features
+def predict_pose(graph):
     angles = []
     dirs = []
 
@@ -62,10 +51,11 @@ def predict_pose(image):
 if __name__ == "__main__":
     image_path = "prelim/DATASET1/ให้จี้/warrior2_104.jpg"
     image = cv2.imread(image_path)
-    if image is None:
-        print(f"Error loading image: {image_path}")
-    else:
-        predicted_pose = predict_pose(image)
+    
+    landmarks = get_landmarks(image)
+    graph = extract_graph(landmarks)
+    
+    predicted_pose = predict_pose(graph)
         
-        if predicted_pose:
-            print(f"Predicted Pose: {predicted_pose}")
+    if predicted_pose:
+        print(f"Predicted Pose: {predicted_pose}")
