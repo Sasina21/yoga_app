@@ -3,7 +3,7 @@ import pickle
 import os
 import cv2
 import mediapipe as mp
-import math
+import numpy as np
 import json
 import random
 import matplotlib.pyplot as plt
@@ -68,10 +68,9 @@ def export_file(graphs, train_pickle, test_pickle, train_json, test_json):
     
     print(f"Train graphs: {len(train_graphs)}, Test graphs: {len(test_graphs)}")
 
-def extract_graph(image_path, classification=None):
-    image = cv2.imread(image_path)
+def extract_graph(image: np.ndarray, classification=None, filename=None):
     if image is None:
-        print(f"Error loading image: {image_path}")
+        print(f"Error loading image: data_preparation")
         return None
 
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -84,7 +83,7 @@ def extract_graph(image_path, classification=None):
 
         height, width, _ = image.shape
         G = nx.Graph()
-        G.graph['filename'] = os.path.basename(image_path)
+        G.graph['filename'] = filename
 
 
         if classification:
@@ -189,7 +188,11 @@ if __name__ == "__main__":
         for filename in os.listdir(classification_path):
             if filename.lower().endswith(('png', 'jpg', 'jpeg')):  
                 image_path = os.path.join(classification_path, filename)
-                graph = extract_graph(image_path, folder_name)
+                image = cv2.imread(image_path)
+                if image is None:
+                    print(f"Error loading image: {image_path}")
+                    continue
+                graph = extract_graph(image, folder_name, filename)
                 if graph:
                     graphs.append(graph)
                     print(f"Processed: {filename}")
