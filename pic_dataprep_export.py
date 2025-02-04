@@ -7,6 +7,7 @@ import math
 import json
 import random
 import matplotlib.pyplot as plt
+from pose_math import PoseMath
 
 input_folders = []
 base_folders = "prelim/DATASET1/symmetric"
@@ -27,34 +28,14 @@ critical_points = {
     "Cobra": left_arm + right_arm + body,
     "Catcow": left_arm + right_arm + left_leg + right_leg,
     "Staff": left_leg + right_leg + body,
+    "Warrior1": left_leg + right_leg,
+    "Warrior2": left_leg + right_leg,
 
     "Sideplank": left_arm,                    
-    "Warrior2": left_leg + right_leg
 }
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
-POSE_CONNECTIONS = list(mp_pose.POSE_CONNECTIONS)
-
-CUSTOM_POSE_CONNECTIONS = frozenset([
-    # # body
-    # (11, 12),  # ไหล่ซ้ายเชื่อมกับไหล่ขวา
-    # (23, 24),  # สะโพกซ้ายเชื่อมกับสะโพกขวา
-
-    # left arm
-    (11, 13), (13, 15),  
-    (11, 23),
-
-    # right arm
-    (12, 14), (14, 16),  
-    (12, 24),
-
-    # left leg
-    (23, 25), (25, 27),
-
-    # right
-    (24, 26), (26, 28)
-])
 
 def save_graphs_to_json(graphs, json_path):
     graph_list = []
@@ -77,43 +58,6 @@ def save_graphs_to_json(graphs, json_path):
 def save_graphs_to_pickle(graphs, pickle_path):
     with open(pickle_path, 'wb') as f:
         pickle.dump(graphs, f)
-
-def calculate_distance(x1, y1, x2, y2, z1=0, z2=0):
-    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
-
-def calculate_angle(a, b, c):
-    # ba = [(a['x'] - b['x']), (a['y'] - b['y']), (a['z'] - b['z'])]
-    # bc = [(c['x'] - b['x']), (c['y'] - b['y']), (c['z'] - b['z'])]
-    ba = [(a['x'] - b['x']), (a['y'] - b['y'])]
-    bc = [(c['x'] - b['x']), (c['y'] - b['y'])]
-
-    # คำนวณ dot product
-    dot_product = sum(ba[i] * bc[i] for i in range(2))
-
-    # คำนวณขนาด (magnitude) ของเวกเตอร์
-    magnitude_ba = math.sqrt(sum(ba[i] ** 2 for i in range(2)))
-    magnitude_bc = math.sqrt(sum(bc[i] ** 2 for i in range(2)))
-
-    # ตรวจสอบกรณี magnitude เป็น 0
-    if magnitude_ba == 0 or magnitude_bc == 0:
-        return 0
-
-    # คำนวณ cos ของมุม
-    cos_angle = dot_product / (magnitude_ba * magnitude_bc)
-
-    # หามุมจาก cos (จำกัดค่า -1 ถึง 1)
-    angle = math.acos(max(-1, min(1, cos_angle)))
-    result = math.degrees(angle)
-    
-    return result
-
-def calculate_direction(a, b):
-    direction = {
-        'x': b['x'] - a['x'],
-        'y': b['y'] - a['y'],
-        'z': b['z'] - a['z']
-    }
-    return direction
 
 def calculate_twist_angle(landmarks):
 
@@ -152,8 +96,8 @@ def calculate_twist_angle(landmarks):
 
     return twist_angle, center_x, center_y, center_z
 
+
 def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, test_json):
-    # graphs = []
     train_graphs = []
     test_graphs = []
 
@@ -206,43 +150,35 @@ def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, 
                                 crit = crit
                                 )
                             
-                        for connection in CUSTOM_POSE_CONNECTIONS:
+                        for connection in PoseMath.CUSTOM_POSE_CONNECTIONS:
                             start_idx, mid_idx = connection
                             if start_idx < len(results.pose_landmarks.landmark) and mid_idx < len(results.pose_landmarks.landmark):
                                 landmark1 = results.pose_landmarks.landmark[start_idx]
                                 landmark2 = results.pose_landmarks.landmark[mid_idx]
 
                                 # Distance
-                                distance = calculate_distance(
+                                distance = PoseMath.calculate_distance(
                                     landmark1.x, landmark1.y, 
                                     landmark2.x, landmark2.y, 
                                     landmark1.z, landmark2.z
                                 )
                                 # Direction
-                                direction = calculate_direction(
+                                direction = PoseMath.calculate_direction(
                                     {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},
                                     {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z}
                                 )
 
                                 G.add_edge(start_idx, mid_idx, distance = distance, dir = direction)
-
-                                # # Direction
-                                # if connection not in [(12, 24), (11, 23)]:
-                                #     direction = calculate_direction(
-                                #         {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},
-                                #         {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z}
-                                #     )
-                                # G.nodes[start_idx]['dir'] = direction
                                 
                                 #Angle
-                                related_connections = [conn for conn in CUSTOM_POSE_CONNECTIONS if conn[0] == mid_idx or conn[0] == start_idx]
+                                related_connections = [conn for conn in PoseMath.CUSTOM_POSE_CONNECTIONS if conn[0] == mid_idx or conn[0] == start_idx]
 
                                 for first, end_idx in related_connections:
                                     if end_idx < len(results.pose_landmarks.landmark) and end_idx != start_idx and end_idx != mid_idx:
                                         landmark3 = results.pose_landmarks.landmark[end_idx]
                                         if first == mid_idx:
                                             # start -> mid -> end
-                                            angle = calculate_angle(
+                                            angle = PoseMath.calculate_angle(
                                             {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},  # start_idx
                                             {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
                                             {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
@@ -251,7 +187,7 @@ def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, 
 
                                         else:
                                             # mid -> start -> end
-                                            angle = calculate_angle(
+                                            angle = PoseMath.calculate_angle(
                                                 {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
                                                 {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},  # start_idx
                                                 {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
@@ -264,12 +200,12 @@ def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, 
                         landmark12 = results.pose_landmarks.landmark[12]
                         landmark23 = results.pose_landmarks.landmark[23]
                         landmark24 = results.pose_landmarks.landmark[24]
-                        distance_shoulder = calculate_distance(
+                        distance_shoulder = PoseMath.calculate_distance(
                             landmark11.x, landmark11.y, 
                             landmark12.x, landmark12.y, 
                             landmark11.z, landmark12.z
                         )
-                        distance_waist = calculate_distance(
+                        distance_waist = PoseMath.calculate_distance(
                             landmark23.x, landmark23.y, 
                             landmark24.x, landmark24.y, 
                             landmark23.z, landmark24.z
@@ -277,90 +213,22 @@ def extract_keypoints_as_graphs(folders, train_pickle, test_pickle, train_json, 
                         G.add_edge(11, 12, distance=distance_shoulder)
                         G.add_edge(23, 24, distance=distance_waist)
 
-                        # # Add LANDMARK33 for twisting pose landmark(12-13) and (23-24)
-                        # twist_angle, center_x, center_y, center_z = calculate_twist_angle(results.pose_landmarks.landmark)
-                        # G.add_node(33, 
-                        #         x = center_x, 
-                        #         y = center_y, 
-                        #         z = center_z,
-                        #         angle = twist_angle,
-                        #         crit = 1 if twist_angle > 5 else 0
-                        #         )
-
-                        # Store the graph
                         output_graphs.append(G)
 
-                # results = pose.process(image_rgb)
-
-                # if results.pose_landmarks:
-                #     height, width, _ = image.shape
-                #     G = nx.Graph()
-
-                #     G.graph['filename'] = filename
-                #     G.graph['classification'] = classification
-
-                #     # Node
-                #     for idx, landmark in enumerate(results.pose_landmarks.landmark):
-                #         G.add_node(idx, 
-                #                    x=landmark.x, 
-                #                    y=landmark.y, 
-                #                    z=landmark.z)
-                    
-                #     # Distance
-                #     for connection in CUSTOM_POSE_CONNECTIONS:
-                #         start_idx, mid_idx = connection
-                #         if start_idx < len(results.pose_landmarks.landmark) and mid_idx < len(results.pose_landmarks.landmark):
-                #             landmark1 = results.pose_landmarks.landmark[start_idx]
-                #             landmark2 = results.pose_landmarks.landmark[mid_idx]
-                #             distance = calculate_distance(
-                #                 landmark1.x, landmark1.y, 
-                #                 landmark2.x, landmark2.y, 
-                #                 landmark1.z, landmark2.z
-                #             )
-                #             G.add_edge(start_idx, mid_idx, distance=distance)
-
-                #             # คำนวณมุมโดยใช้จุด Landmark ที่เกี่ยวข้อง
-                #             # หา connection ที่มี mid_idx เป็นจุดเริ่มต้น
-                #             related_connections = [conn for conn in CUSTOM_POSE_CONNECTIONS if conn[0] == mid_idx or conn[0] == start_idx]
-
-                #             for first, end_idx in related_connections:
-                #                 if end_idx < len(results.pose_landmarks.landmark) and end_idx != start_idx and end_idx != mid_idx:
-                #                     landmark3 = results.pose_landmarks.landmark[end_idx]
-                #                     if first == mid_idx:
-                #                         # start -> mid -> end
-                #                         angle = calculate_angle(
-                #                         {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},  # start_idx
-                #                         {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
-                #                         {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
-                #                     )
-                #                         G.nodes[mid_idx]['angle'] = angle
-
-                #                     else:
-                #                         # mid -> start -> end
-                #                         angle = calculate_angle(
-                #                             {'x': landmark2.x, 'y': landmark2.y, 'z': landmark2.z},  # mid_idx
-                #                             {'x': landmark1.x, 'y': landmark1.y, 'z': landmark1.z},  # start_idx
-                #                             {'x': landmark3.x, 'y': landmark3.y, 'z': landmark3.z},  # end_idx
-                #                         )
-                #                         G.nodes[start_idx]['angle'] = angle
-
-                #     output_graphs.append(G)
-
-    # Save train and test graphs as both Pickle and JSON
-    save_graphs_to_pickle(train_graphs, train_pickle)
+    # save_graphs_to_pickle(train_graphs, train_pickle)
     save_graphs_to_json(train_graphs, train_json)
-    save_graphs_to_pickle(test_graphs, test_pickle)
+    # save_graphs_to_pickle(test_graphs, test_pickle)
     save_graphs_to_json(test_graphs, test_json)
 
     print(f"Train graphs: {len(train_graphs)}, Test graphs: {len(test_graphs)}")
 
 
 # Output files
-output_train_pickle = "sym_svm_datatrain.pkl"
-output_test_pickle = "sym_svm_datatest.pkl"
-output_train_json = "sym_svm_datatrain.json"
-output_test_json = "sym_svm_datatest.json"
+output_train_pickle = "9sym_svm_datatrain.pkl"
+output_test_pickle = "9sym_svm_datatest.pkl"
+output_train_json = "9sym_svm_datatrain.json"
+output_test_json = "9sym_svm_datatest.json"
 
 extract_keypoints_as_graphs(base_folders, output_train_pickle, output_test_pickle, output_train_json, output_test_json)
-pose.close()
-print("success!!!!!!!!")
+
+print("export success!!!!!!!!")
