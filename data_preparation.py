@@ -74,7 +74,12 @@ def get_landmarks(image: np.ndarray, filename=None):
         print("Error: Image is None :{filename}")
         return None
     
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # .png
+    if image.shape[2] == 4:
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+
+    else:
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     
     with mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5) as pose:
         results = pose.process(image_rgb)

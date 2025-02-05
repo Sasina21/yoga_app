@@ -52,8 +52,8 @@ if __name__ == "__main__":
     image_path = "prelim/DATASET1/ให้จี้/warrior2_104.jpg"
     image = cv2.imread(image_path)
     
-    landmarks = get_landmarks(image)
-    graph = get_graph(landmarks)
+    pose_landmarks = get_landmarks(image)
+    graph = get_graph(pose_landmarks)
     
     predicted_pose = predict_pose(graph)
         
