@@ -4,7 +4,8 @@ from streamlit_webrtc import webrtc_streamer, RTCConfiguration
 from PIL import Image, ImageDraw
 import cv2
 import mediapipe as mp
-from data_preparation import get_landmarks
+from data_preparation import get_landmarks, get_graph
+from class_prediction import predict_pose
 
 def local_css(file_name):
     with open(file_name) as f:
@@ -79,6 +80,8 @@ image_pil = Image.open(image_path)
 image_np = np.array(image_pil)
 landmarks = get_landmarks(image_np)
 annotated_image = draw_landmarks(image_pil, landmarks)
+graph = get_graph(landmarks)
+predicted_class = predict_pose(graph)
 
 
 # Front-end
@@ -89,7 +92,7 @@ cols = st.columns(2)
 with cols[0]:
     st.image(
         annotated_image, 
-        caption="Annotated Image with Mediapipe Pose", 
+        caption = predicted_class, 
         use_container_width=True
     )
 
