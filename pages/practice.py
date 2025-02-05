@@ -42,13 +42,13 @@ def draw_landmarks(image_pil, landmarks):
 
 def main():
 
-    webrtc_ctx = webrtc_streamer(
-        key="camera",
-        rtc_configuration=RTCConfiguration(
-            {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-        ),
-        media_stream_constraints={"video": True, "audio": False},  
-    )
+    # webrtc_ctx = webrtc_streamer(
+    #     key="camera",
+    #     rtc_configuration=RTCConfiguration(
+    #         {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+    #     ),
+    #     media_stream_constraints={"video": True, "audio": False},  
+    # )
 
 # def main():
 #     run = st.button("카메라 활성화", type="primary")
