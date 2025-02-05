@@ -2,7 +2,6 @@ import numpy as np
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, RTCConfiguration
 from PIL import Image, ImageDraw
-import cv2
 import mediapipe as mp
 from data_preparation import get_landmarks, get_graph
 from class_prediction import predict_pose
