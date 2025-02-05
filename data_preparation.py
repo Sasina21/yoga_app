@@ -31,9 +31,6 @@ CRITICAL_POINTS = {
     "Sideplank": left_arm,                    
 }
 
-mp_pose = mp.solutions.pose
-pose = mp_pose.Pose()
-
 def save_graphs_to_json(graphs, json_path):
     graph_list = []
     for G in graphs:
@@ -56,7 +53,7 @@ def save_graphs_to_pickle(graphs, pickle_path):
     with open(pickle_path, 'wb') as f:
         pickle.dump(graphs, f)
 
-def export_file(graphs, train_pickle, test_pickle, train_json, test_json):
+def get_file(graphs, train_pickle, test_pickle, train_json, test_json):
     random.shuffle(graphs)
     split_idx = int(len(graphs) * 0.75)
     train_graphs, test_graphs = graphs[:split_idx], graphs[split_idx:]
@@ -70,6 +67,9 @@ def export_file(graphs, train_pickle, test_pickle, train_json, test_json):
 
 def get_landmarks(image: np.ndarray, filename=None):
 
+    mp_pose = mp.solutions.pose
+    pose = mp_pose.Pose()
+    
     if image is None:
         print("Error: Image is None :{filename}")
         return None
@@ -89,7 +89,7 @@ def get_landmarks(image: np.ndarray, filename=None):
         
         return landmarks
 
-def extract_graph(landmarks, classification=None, filename=None):
+def get_graph(landmarks, classification=None, filename=None):
     if landmarks is None:
         print("Error: Landmarks are None")
         return None
@@ -202,12 +202,12 @@ if __name__ == "__main__":
                 image_path = os.path.join(classification_path, filename)
                 image = cv2.imread(image_path)
                 landmarks = get_landmarks(image)
-                graph = extract_graph(landmarks, folder_name, filename)
+                graph = get_graph(landmarks, folder_name, filename)
                 if graph:
                     graphs.append(graph)
                     print(f"Processed: {filename}")
 
     # extract_keypoints_as_graphs(base_folders, output_train_pickle, output_test_pickle, output_train_json, output_test_json)
     # graphs = extract_graphs(base_folders)
-    export_file(graphs, "9sym_svm_datatrain.pkl", "9sym_svm_datatest.pkl", "9sym_svm_datatrain.json", "9sym_svm_datatest.json")
+    get_file(graphs, "9sym_svm_datatrain.pkl", "9sym_svm_datatest.pkl", "9sym_svm_datatrain.json", "9sym_svm_datatest.json")
     print("Export success!!!!!!!!")

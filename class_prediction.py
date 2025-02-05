@@ -2,10 +2,10 @@ import os
 import joblib
 import pandas as pd
 import cv2
-from data_preparation import extract_graph, get_landmarks
+from data_preparation import get_graph, get_landmarks
 
 # Load trained model, scaler, and label encoder
-best_model = joblib.load('svm_model.joblib')
+svm_model = joblib.load('svm_model.joblib')
 scaler = joblib.load('scaler.joblib')
 label_encoder = joblib.load('label_encoder.joblib')
 
@@ -40,7 +40,7 @@ def predict_pose(graph):
     feature_scaled = scaler.transform(feature_df)
     
     # Predict the class
-    prediction = best_model.predict(feature_scaled)
+    prediction = svm_model.predict(feature_scaled)
     
     # Decode label
     predicted_class = label_encoder.inverse_transform(prediction)[0]
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     image = cv2.imread(image_path)
     
     landmarks = get_landmarks(image)
-    graph = extract_graph(landmarks)
+    graph = get_graph(landmarks)
     
     predicted_pose = predict_pose(graph)
         
