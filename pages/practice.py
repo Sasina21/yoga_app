@@ -1,5 +1,5 @@
-import streamlit as st
 import numpy as np
+import streamlit as st
 from streamlit_webrtc import webrtc_streamer, RTCConfiguration
 from PIL import Image, ImageDraw
 import cv2
@@ -41,39 +41,49 @@ def draw_landmarks(image_pil, landmarks):
     return image_pil
 
 def main():
-    run = st.button("카메라 활성화", type="primary")
 
-    frame_window = st.image([])
+    webrtc_ctx = webrtc_streamer(
+        key="camera",
+        rtc_configuration=RTCConfiguration(
+            {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+        ),
+        media_stream_constraints={"video": True, "audio": False},  
+    )
 
-    mp_pose = mp.solutions.pose
-    pose = mp_pose.Pose()
+# def main():
+#     run = st.button("카메라 활성화", type="primary")
 
-    cap = cv2.VideoCapture(0)
+#     frame_window = st.image([])
 
-    while run:
-        ret, frame = cap.read()
-        if not ret:
-            break
+#     mp_pose = mp.solutions.pose
+#     pose = mp_pose.Pose()
 
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = pose.process(frame)
+#     cap = cv2.VideoCapture(0)
 
-        # if results.pose_landmarks:
-        #     mp.solutions.drawing_utils.draw_landmarks(
-        #         frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS
-        #     )
+#     while run:
+#         ret, frame = cap.read()
+#         if not ret:
+#             break
 
-        #     for idx, landmark in enumerate(results.pose_landmarks.landmark):
-        #         x = landmark.x  
-        #         y = landmark.y  
-        #         z = landmark.z  
-        #         visibility = landmark.visibility  
+#         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+#         results = pose.process(frame)
 
-        #         st.text(f"Landmark {idx}: x={x:.2f}, y={y:.2f}, z={z:.2f}, visibility={visibility:.2f}")
+#         # if results.pose_landmarks:
+#         #     mp.solutions.drawing_utils.draw_landmarks(
+#         #         frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS
+#         #     )
 
-        frame_window.image(frame)
+#         #     for idx, landmark in enumerate(results.pose_landmarks.landmark):
+#         #         x = landmark.x  
+#         #         y = landmark.y  
+#         #         z = landmark.z  
+#         #         visibility = landmark.visibility  
 
-    cap.release()
+#         #         st.text(f"Landmark {idx}: x={x:.2f}, y={y:.2f}, z={z:.2f}, visibility={visibility:.2f}")
+
+#         frame_window.image(frame)
+
+#     cap.release()
 
 image_path = "Images/downdog.png"
 image_pil = Image.open(image_path)
