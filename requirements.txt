@@ -9,5 +9,5 @@ joblib
 scikit-learn
 pandas
 matplotlib
-torch==1.13.1
-torch-geometric==2.2.0
+torch==2.2.2+cpu
+torch-geometric==2.6.1+cpu
