@@ -11,3 +11,7 @@ pandas
 matplotlib
 torch==2.2.2
 torch-geometric==2.6.1
+torch-scatter==2.1.0  # Dependency for torch-geometric
+torch-sparse==0.6.12  # Dependency for torch-geometric
+torch-cluster==1.6.0  # Dependency for torch-geometric
+torch-spline-conv==1.2.1  # Dependency for torch-geometric
