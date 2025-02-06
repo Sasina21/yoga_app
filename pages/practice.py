@@ -7,7 +7,7 @@ import cv2
 import mediapipe as mp
 from data_preparation import get_landmarks, get_graph
 from class_prediction import predict_pose
-# from key_area_prediction import predict_key_area
+from key_area_prediction import predict_key_area
 
 def local_css(file_name):
     with open(file_name) as f:
@@ -75,7 +75,7 @@ def main():
     annotated_image = draw_landmarks(image_pil, landmarks)
     graph = get_graph(landmarks)
     predicted_class = predict_pose(graph)
-    # predicted_key_area = predict_key_area(graph)
+    predicted_key_area = predict_key_area(graph)
 
 
     # Front-end
@@ -89,7 +89,7 @@ def main():
             caption = predicted_class, 
             use_container_width=True
         )
-        # st.markdown(predicted_key_area)
+        st.markdown(predicted_key_area)
 
     with cols[1]:
         cam()
