@@ -9,7 +9,7 @@ from data_preparation import get_graph, get_landmarks
 print(f"Welcome to KEY_AREA_PREDICTION")
 
 # Load trained model
-model_path = "rgcn_model.pth"
+model_path = "rgcn_model.pt"
 
 class RGCNConv(MessagePassing):
     def __init__(self, in_channels, out_channels, edge_dim):
