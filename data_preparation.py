@@ -9,6 +9,8 @@ import random
 import matplotlib.pyplot as plt
 from pose_math import PoseMath
 
+print(f"Welcome to DATA_PREPARATION")
+
 left_arm = [11, 13, 15]
 left_upper_arm = [11, 13]
 right_arm = [12, 14, 16]

@@ -7,6 +7,8 @@ from PIL import Image
 # from logging_config import setup_logging
 # setup_logging()
 
+print("Welcome To Main Page")
+
 st.set_page_config(
     page_title="Yoga App",
     layout="wide",
@@ -20,7 +22,8 @@ def local_css(file_name):
 # CSS
 local_css("style.css")
 
-# Front
+
+# Front-end
 
 st.title("Yoga")
 

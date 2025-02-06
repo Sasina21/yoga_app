@@ -4,6 +4,8 @@ import pandas as pd
 import cv2
 from data_preparation import get_graph, get_landmarks
 
+print(f"Welcome to CLASS_PREDICTION")
+
 # Load trained model, scaler, and label encoder
 svm_model = joblib.load('svm_model.joblib')
 scaler = joblib.load('scaler.joblib')

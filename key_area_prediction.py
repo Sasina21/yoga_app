@@ -6,6 +6,8 @@ import pandas as pd
 import cv2
 from data_preparation import get_graph, get_landmarks
 
+print(f"Welcome to KEY_AREA_PREDICTION")
+
 # Load trained model
 model_path = "rgcn_model.pth"
 
