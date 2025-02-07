@@ -85,7 +85,7 @@ def predict_key_area(graph):
     return pred.tolist()
 
 if __name__ == "__main__":
-    image_path = "prelim/DATASET1/ให้จี้/warrior2_104.jpg"
+    image_path = "prelim/DATASET1/ให้จี้/bridge.png"
     image = cv2.imread(image_path)
     
     landmarks = get_landmarks(image)
@@ -94,5 +94,5 @@ if __name__ == "__main__":
     predicted_key_area = predict_key_area(graph)
         
     if predicted_key_area:
-        for idx, pose in enumerate(predicted_key_area):
-            print(f"{idx}: {pose}", end=' ')
+        for idx, key in enumerate(predicted_key_area):
+            print(f"{idx}: {key}", end=', ')
