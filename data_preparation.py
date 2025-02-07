@@ -19,7 +19,7 @@ left_leg = [23, 25, 27]
 right_leg = [24, 26, 28]
 body = [11, 12, 23, 24]
 
-CRITICAL_POINTS = {
+KEY_AREA = {
     "Downdog": left_arm + right_arm + left_leg + right_leg,
     "Goddess": left_leg + right_leg,
     "Plank": left_arm + right_arm + left_leg + right_leg ,
@@ -70,7 +70,6 @@ def get_file(graphs, train_pickle, test_pickle, train_json, test_json):
 def get_landmarks(image: np.ndarray, filename=None):
 
     mp_pose = mp.solutions.pose
-    pose = mp_pose.Pose()
     
     if image is None:
         print("Error: Image is None :{filename}")
@@ -78,10 +77,10 @@ def get_landmarks(image: np.ndarray, filename=None):
     
     # .png
     if image.shape[2] == 4:
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+        image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
 
-    else:
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     
     with mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5) as pose:
         results = pose.process(image_rgb)
@@ -94,7 +93,21 @@ def get_landmarks(image: np.ndarray, filename=None):
             for lm in results.pose_landmarks.landmark
         ]
         
-        return landmarks
+    return landmarks
+
+def get_key_area(graph, classification):
+
+    if graph is None:
+        print("Error: graph is None")
+        return None
+
+    for idx, data in graph.nodes(data=True):
+        key = 0
+        if classification and classification in KEY_AREA and idx in KEY_AREA[classification]:
+            key = 1
+        graph.nodes[idx]['key'] = key
+
+    return graph
 
 def get_graph(landmarks, classification=None, filename=None):
     if landmarks is None:
@@ -103,21 +116,10 @@ def get_graph(landmarks, classification=None, filename=None):
 
     G = nx.Graph()
     G.graph['filename'] = filename
+    G.graph['classification'] = classification
 
-
-    if classification:
-        G.graph['classification'] = classification
-        # Node and Critical points
-        for idx, lm in enumerate(landmarks):
-            crit = 1 if classification and classification in CRITICAL_POINTS and idx in CRITICAL_POINTS[classification] else 0
-            G.add_node(idx, 
-                       x=lm['x'], 
-                       y=lm['y'], 
-                       z=lm['z'], 
-                       crit=crit)
-    else:
-        # Node
-        for idx, lm in enumerate(landmarks):
+    # Node
+    for idx, lm in enumerate(landmarks):
             G.add_node(idx,
                         x=lm['x'], 
                         y=lm['y'], 
@@ -210,6 +212,7 @@ if __name__ == "__main__":
                 image = cv2.imread(image_path)
                 landmarks = get_landmarks(image)
                 graph = get_graph(landmarks, folder_name, filename)
+                graph = get_key_area(graph, folder_name)
                 if graph:
                     graphs.append(graph)
                     print(f"Processed: {filename}")
