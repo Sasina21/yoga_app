@@ -91,6 +91,10 @@ def get_landmarks(image: np.ndarray, filename=None):
             {"x": lm.x, "y": lm.y, "z": lm.z} 
             for lm in results.pose_landmarks.landmark
         ]
+
+    if landmarks is None:
+        print("Error: No landmarks detected.")
+        return None
         
     return landmarks
 
@@ -186,6 +190,10 @@ def get_graph(landmarks, classification=None, filename=None):
     )
     G.add_edge(11, 12, distance=distance_shoulder)
     G.add_edge(23, 24, distance=distance_waist)
+    
+    if G is None:
+        print("Error: Failed to generate graph from landmarks.")
+        return None
     
     return G
 
