@@ -2,6 +2,8 @@ import torch
 from torch_geometric.data import Data
 from torch_geometric.nn import MessagePassing
 import torch.nn.functional as F
+from PIL import Image, ImageDraw
+import mediapipe as mp
 import pandas as pd
 import cv2
 from data_preparation import get_graph, get_landmarks
@@ -41,7 +43,39 @@ class RGCNNodeModel(torch.nn.Module):
         x = self.conv2(x, edge_index, edge_attr).relu()
         x = self.conv3(x, edge_index, edge_attr).relu()
         return self.fc(x)
-    
+
+def draw_landmarks(image_pil, landmarks, predicted_key_area):
+    if image_pil is None or landmarks is None:
+        print("Error: Image or Landmarks is None")
+        return None
+
+    # image_pil = image_pil.convert("RGB")
+    draw = ImageDraw.Draw(image_pil)
+
+    width, height = image_pil.size
+    print(f"width: {width}, height: {height}")
+    mp_pose = mp.solutions.pose
+    pose_connections = mp_pose.POSE_CONNECTIONS
+
+    points = [(int(lm["x"] * width), int(lm["y"] * height)) for lm in landmarks]
+
+    # edge
+    for start_idx, end_idx in pose_connections:
+        if start_idx < len(points) and end_idx < len(points):
+            draw.line([points[start_idx], points[end_idx]], fill=(0, 0, 255), width=3)
+
+    # landmarks
+    for idx, (x, y) in enumerate(points):
+        radius = 4
+        if predicted_key_area[idx] == 1:
+            # Blue color for key = 1
+            draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=(255, 0, 0))
+        else:
+            # Gray color for key = 0
+            draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=(0, 0, 255))
+
+    return image_pil
+ 
 def predict_key_area(graph):
 
     # checkpoint = torch.load("rgcn_model.pth", map_location="cpu")
@@ -84,6 +118,21 @@ def predict_key_area(graph):
 
     return pred.tolist()
 
+def draw_predict_key_area_filepath(filepath):
+    try:
+        image_pil = Image.open(filepath)
+    except Exception as e:
+        print(f"Error loading image: {e}")
+        return None
+
+    landmarks = get_landmarks(image_pil)
+    
+    graph = get_graph(landmarks)
+    
+    predicted_key_area = predict_key_area(graph)
+    
+    return draw_landmarks(image_pil, landmarks, predicted_key_area)
+    
 if __name__ == "__main__":
     image_path = "prelim/DATASET1/ให้จี้/bridge.png"
     image = cv2.imread(image_path)

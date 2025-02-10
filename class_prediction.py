@@ -49,6 +49,18 @@ def predict_pose(graph):
     
     return predicted_class
 
+def predict_pose_filepath(filepath):
+    image = cv2.imread(filepath)
+    
+    if image is None:
+        print(f"Error: Cannot load image from {filepath}")
+        return None
+
+    landmarks = get_landmarks(image)
+
+    graph = get_graph(landmarks)
+    
+    return predict_pose(graph)
 
 if __name__ == "__main__":
     image_path = "prelim/DATASET1/ให้จี้/warrior2_104.jpg"
