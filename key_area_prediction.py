@@ -11,7 +11,8 @@ from data_preparation import get_graph, get_landmarks
 print(f"Welcome to KEY_AREA_PREDICTION")
 
 # Load trained model
-model_path = "rgcn_model.pt"
+# model_path = "rgcn_model.pt"
+model_path = "15rgcn_model.pt"
 
 class RGCNConv(MessagePassing):
     def __init__(self, in_channels, out_channels, edge_dim):
@@ -36,12 +37,14 @@ class RGCNNodeModel(torch.nn.Module):
         self.conv1 = RGCNConv(input_dim, hidden_dim, edge_dim)
         self.conv2 = RGCNConv(hidden_dim, hidden_dim, edge_dim)
         self.conv3 = RGCNConv(hidden_dim, hidden_dim, edge_dim)
+        self.conv4 = RGCNConv(hidden_dim, hidden_dim, edge_dim)
         self.fc = torch.nn.Linear(hidden_dim, 1)
 
     def forward(self, x, edge_index, edge_attr):
         x = self.conv1(x, edge_index, edge_attr).relu()
         x = self.conv2(x, edge_index, edge_attr).relu()
         x = self.conv3(x, edge_index, edge_attr).relu()
+        x = self.conv4(x, edge_index, edge_attr).relu()
         return self.fc(x)
 
 def draw_landmarks(image_pil, landmarks, predicted_key_area):
@@ -83,7 +86,7 @@ def predict_key_area(graph):
 
 
     input_dim = 4  # x, y, z, angle
-    hidden_dim = 16
+    hidden_dim = 32
     edge_dim = 4  # dir_x, dir_y, dir_z, distance
     model = RGCNNodeModel(input_dim=input_dim, hidden_dim=hidden_dim, edge_dim=edge_dim)
     model.load_state_dict(torch.load(model_path))
