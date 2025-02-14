@@ -11,26 +11,71 @@ from pose_math import PoseMath
 
 print(f"Welcome to DATA_PREPARATION")
 
-left_arm = [11, 13, 15]
-left_upper_arm = [11, 13]
-right_arm = [12, 14, 16]
-right_upper_arm = [12, 14]
-left_leg = [23, 25, 27]
-right_leg = [24, 26, 28]
+# body = [11, 12, 23, 24]
+# left_shoulder = [11]
+# right_shoulder = [12]
+# hip = [23, 24]
+# left_forearm = [13, 15]
+# left_upper_arm = [11, 13]
+# right_forearm = [14, 16]
+# right_upper_arm = [12, 14]
+# left_thigh = [23, 25]
+# left_lower_leg = [25, 27]
+# right_thigh = [24, 26]
+# right_lower_leg = [26, 28]
+# left_wrist = [15]
+# right_wrist = [16]
+# left_ankle = [27]
+# right_ankle = [28]
+# left_knee = [25]
+# right_knee = [26]
+
 body = [11, 12, 23, 24]
+shoulder = [11, 12]
+hip = [23, 24]
+forearm = [13, 14, 15, 16]
+upper_arm = [11, 12, 13, 14]
+thigh = [23, 24, 25, 26]
+lower_leg = [25, 26, 27, 28]
+knee = [25, 26]
+wrist = [15, 16]
+ankle = [27, 28]
 
 KEY_AREA = {
-    "Downdog": left_arm + right_arm + left_leg + right_leg,
-    "Goddess": left_leg + right_leg,
-    "Plank": left_arm + right_arm + left_leg + right_leg ,
-    "Tree": left_leg + right_leg,  
-    "Cobra": left_arm + right_arm + body,
-    "Catcow": left_arm + right_arm + left_leg + right_leg,
-    "Staff": left_leg + right_leg + body,
-    "Warrior1": left_leg + right_leg,
-    "Warrior2": left_leg + right_leg,
+    # "Downdog": left_arm + right_arm + left_leg + right_leg,
+    # "Goddess": left_leg + right_leg,
+    # "Plank": left_arm + right_arm + left_leg + right_leg ,
+    # "Tree": left_leg + right_leg,  
+    # "Cobra": left_arm + right_arm + body,
+    # "Catcow": left_arm + right_arm + left_leg + right_leg,
+    # "Staff": left_leg + right_leg + body,
+    # "Warrior1": left_leg + right_leg,
+    # "Warrior2": left_leg + right_leg,
 
-    "Sideplank": left_arm,                    
+    "goddess": body + hip + thigh,
+    "triangle": body + shoulder ,
+    "staff": body,
+    "catcow": body,
+    "child": body + shoulder + hip + thigh,
+    "downdog": body + shoulder + upper_arm + forearm + hip + lower_leg + ankle,
+    "seatedforward": body + ankle,
+    "bridge": body + hip,
+    "wheel": body + shoulder + forearm + upper_arm + hip + thigh + lower_leg,
+    "halfspinaltwist": body,
+    "shoulderstand": body + shoulder,
+    "happybaby": hip + thigh,
+    "reclining": body + hip ,
+    "cobra": body ,
+    "plank": body + shoulder + forearm + upper_arm + wrist 
+
+}
+
+CRITICAL = {
+    "Downdog": wrist + ankle,
+    "Triangle" : body + shoulder + hip + thigh + ankle,
+    "Seated Forward" : body + hip + ankle,
+    "Cobra": body + shoulder, 
+    "Child" : body + shoulder + hip + thigh,
 }
 
 def save_graphs_to_json(graphs, json_path):
@@ -171,7 +216,6 @@ def get_graph(landmarks, classification=None, filename=None):
                             {'x': lm3['x'], 'y': lm3['y'], 'z': lm3['z']},  # end_idx
                         )
                         G.nodes[start_idx]['angle'] = angle
-
     
     # Distance landmark(11-12) and (23-24)
     lm11 = landmarks[11]
@@ -197,34 +241,55 @@ def get_graph(landmarks, classification=None, filename=None):
     
     return G
 
+def get_files_in_folders(base_folder):
+    
+    image_paths = {}
+
+    for classification in os.listdir(base_folder):
+        _classification = classification.lower().replace(" ", "")
+
+        if _classification and _classification in KEY_AREA:
+            classification_path = os.path.join(base_folder, classification)
+
+            if not os.path.isdir(classification_path):
+                continue
+            
+            if _classification not in image_paths:
+                image_paths[_classification] = set()
+
+            for filename in os.listdir(classification_path):
+                if filename.lower().endswith(('png', 'jpg', 'jpeg')):  
+                    image_path = os.path.join(classification_path, filename)
+                    image_paths[_classification].add(image_path)
+                    
+
+    return image_paths
+
 if __name__ == "__main__":
     # Input folders
-    base_folders = "prelim/DATASET1/symmetric"
+    base_folder = "prelim/DATASET/dataset"
     # Output files
-    output_train_pickle = "9sym_svm_datatrain.pkl"
-    output_test_pickle = "9sym_svm_datatest.pkl"
-    output_train_json = "9sym_svm_datatrain.json"
-    output_test_json = "9sym_svm_datatest.json"
+    output_train_pickle = "15classes_datatrain.pkl"
+    output_test_pickle = "15classes_datatest.pkl"
+    output_train_json = "15classes_datatrain.json"
+    output_test_json = "15classes_datatest.json"
 
     graphs = []
 
-    for folder_name in os.listdir(base_folders):
-        classification_path = os.path.join(base_folders, folder_name)
-        if not os.path.isdir(classification_path):
-            continue
+    image_paths = get_files_in_folders(base_folder)
+    
+    for classification, image_paths in image_paths.items():
+        for image_path in image_paths:
+            image = cv2.imread(image_path)
+            landmarks = get_landmarks(image)
+            graph = get_graph(landmarks, classification, image_path)
+            graph = get_key_area(graph, classification)
 
-        for filename in os.listdir(classification_path):
-            if filename.lower().endswith(('png', 'jpg', 'jpeg')):  
-                image_path = os.path.join(classification_path, filename)
-                image = cv2.imread(image_path)
-                landmarks = get_landmarks(image)
-                graph = get_graph(landmarks, folder_name, filename)
-                graph = get_key_area(graph, folder_name)
-                if graph:
-                    graphs.append(graph)
-                    print(f"Processed: {filename}")
+            if graph:
+                graphs.append(graph)
+                print(f"Processed: {image_path}")
 
     # extract_keypoints_as_graphs(base_folders, output_train_pickle, output_test_pickle, output_train_json, output_test_json)
     # graphs = extract_graphs(base_folders)
-    get_file(graphs, "9sym_svm_datatrain.pkl", "9sym_svm_datatest.pkl", "9sym_svm_datatrain.json", "9sym_svm_datatest.json")
+    get_file(graphs, output_train_pickle, output_test_pickle, output_train_json, output_test_json)
     print("Export success!!!!!!!!")
