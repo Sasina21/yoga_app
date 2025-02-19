@@ -100,17 +100,67 @@ def save_graphs_to_pickle(graphs, pickle_path):
     with open(pickle_path, 'wb') as f:
         pickle.dump(graphs, f)
 
+# def get_file(graphs, train_pickle, test_pickle, train_json, test_json):
+#     random.shuffle(graphs)
+#     split_idx = int(len(graphs) * 0.75)
+#     train_graphs, test_graphs = graphs[:split_idx], graphs[split_idx:]
+
+#     # save_graphs_to_pickle(train_graphs, train_pickle)
+#     # save_graphs_to_pickle(test_graphs, test_pickle)
+#     save_graphs_to_json(train_graphs, train_json)
+#     save_graphs_to_json(test_graphs, test_json)
+    
+#     print(f"Train graphs: {len(train_graphs)}, Test graphs: {len(test_graphs)}")
+
+import random
+
 def get_file(graphs, train_pickle, test_pickle, train_json, test_json):
-    random.shuffle(graphs)
-    split_idx = int(len(graphs) * 0.75)
-    train_graphs, test_graphs = graphs[:split_idx], graphs[split_idx:]
+
+    classification_groups = {}
+    for graph in graphs:
+        classification = graph.graph.get('classification') 
+        if classification is None:
+            print("Warning: พบกราฟที่ไม่มี 'classification'")
+            continue
+
+        if classification not in classification_groups:
+            classification_groups[classification] = []
+        classification_groups[classification].append(graph)
+    
+    train_graphs = []
+    test_graphs = []
+
+    for classification, class_graphs in classification_groups.items():
+        random.shuffle(class_graphs)
+        split_idx = int(len(class_graphs) * 0.75)
+        train_graphs.extend(class_graphs[:split_idx])
+        test_graphs.extend(class_graphs[split_idx:])
 
     # save_graphs_to_pickle(train_graphs, train_pickle)
     # save_graphs_to_pickle(test_graphs, test_pickle)
     save_graphs_to_json(train_graphs, train_json)
     save_graphs_to_json(test_graphs, test_json)
     
-    print(f"Train graphs: {len(train_graphs)}, Test graphs: {len(test_graphs)}")
+    # ตรวจสอบการกระจายของ classification
+    def count_classifications(graph_list):
+        counts = {}
+        for graph in graph_list:
+            classification = graph.graph.get('classification', 'Unknown')
+            counts[classification] = counts.get(classification, 0) + 1
+        return counts
+
+    train_counts = count_classifications(train_graphs)
+    test_counts = count_classifications(test_graphs)
+    
+    print(f"\nTrain graphs: {len(train_graphs)}, Test graphs: {len(test_graphs)}")
+
+    print("\nTrain classification distribution:")
+    for classification, count in train_counts.items():
+        print(f"  {classification}: {count}")
+
+    print("\nTest classification distribution:")
+    for classification, count in test_counts.items():
+        print(f"  {classification}: {count}")
 
 def get_landmarks(image: np.ndarray, filename=None):
 
@@ -154,6 +204,26 @@ def get_key_area(graph, classification):
         if classification and classification in KEY_AREA and idx in KEY_AREA[classification]:
             key = 1
         graph.nodes[idx]['key'] = key
+
+    # for connection in PoseMath.CUSTOM_POSE_CONNECTIONS:
+    #     start_idx, end_idx = connection
+    #     if start_idx < len(landmarks) and end_idx < len(landmarks):
+    #         lm1 = landmarks[start_idx]
+    #         lm2 = landmarks[end_idx]
+
+    #         # Distance
+    #         distance = PoseMath.calculate_distance(
+    #             lm1['x'], lm1['y'], 
+    #             lm2['x'], lm2['y'], 
+    #             lm1['z'], lm2['z']
+    #         )
+    #         # Direction
+    #         direction = PoseMath.calculate_direction(
+    #             {'x': lm1['x'], 'y': lm1['y'], 'z': lm1['z']},
+    #             {'x': lm2['x'], 'y': lm2['y'], 'z': lm2['z']}
+    #         )
+
+    #         G.add_edge(start_idx, end_idx, distance = distance, dir = direction)
 
     return graph
 
