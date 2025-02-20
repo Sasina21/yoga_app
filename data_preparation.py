@@ -11,24 +11,7 @@ from pose_math import PoseMath
 
 print(f"Welcome to DATA_PREPARATION")
 
-# body = [11, 12, 23, 24]
-# left_shoulder = [11]
-# right_shoulder = [12]
-# hip = [23, 24]
-# left_forearm = [13, 15]
-# left_upper_arm = [11, 13]
-# right_forearm = [14, 16]
-# right_upper_arm = [12, 14]
-# left_thigh = [23, 25]
-# left_lower_leg = [25, 27]
-# right_thigh = [24, 26]
-# right_lower_leg = [26, 28]
-# left_wrist = [15]
-# right_wrist = [16]
-# left_ankle = [27]
-# right_ankle = [28]
-# left_knee = [25]
-# right_knee = [26]
+JOINT_SIZE = 2
 
 body = {11, 12, 23, 24}
 forearm = {13, 14, 15, 16}
@@ -42,16 +25,6 @@ wrist = {15, 16}
 ankle = {27, 28}
 
 KEY_AREA = {
-    # "Downdog": left_arm + right_arm + left_leg + right_leg,
-    # "Goddess": left_leg + right_leg,
-    # "Plank": left_arm + right_arm + left_leg + right_leg ,
-    # "Tree": left_leg + right_leg,  
-    # "Cobra": left_arm + right_arm + body,
-    # "Catcow": left_arm + right_arm + left_leg + right_leg,
-    # "Staff": left_leg + right_leg + body,
-    # "Warrior1": left_leg + right_leg,
-    # "Warrior2": left_leg + right_leg,
-
     "goddess": [body, hip, thigh],
     "triangle": [body, shoulder] ,
     "staff": [body],
@@ -67,17 +40,17 @@ KEY_AREA = {
     "reclining": [body, hip] ,
     "cobra": [body] ,
     "plank": [body, shoulder, forearm, upper_arm, wrist],
-    "warrior2": [body, thigh, shoulder]
+    "warrior2": [body, thigh, shoulder],
 
 }
 
-CRITICAL = {
-    "Downdog": wrist + ankle,
-    "Triangle" : body + shoulder + hip + thigh + ankle,
-    "Seated Forward" : body + hip + ankle,
-    "Cobra": body + shoulder, 
-    "Child" : body + shoulder + hip + thigh,
-}
+# CRITICAL = {
+#     "Downdog": wrist + ankle,
+#     "Triangle" : body + shoulder + hip + thigh + ankle,
+#     "Seated Forward" : body + hip + ankle,
+#     "Cobra": body + shoulder, 
+#     "Child" : body + shoulder + hip + thigh,
+# }
 
 def save_graphs_to_json(graphs, json_path):
     graph_list = []
@@ -199,28 +172,21 @@ def get_key_area(graph, classification):
         print("Error: graph is None")
         return None
 
-    for idx, data in graph.nodes(data=True):
-        key = 0
-        if classification and classification in KEY_AREA and idx in KEY_AREA[classification]:
-            key = 1
-        graph.nodes[idx]['key'] = key
-
-
-    for landmark_set in KEY_AREA[classification]:
-        has_connection = False
-
-        for start_idx, end_idx in PoseMath.CUSTOM_POSE_CONNECTIONS:
-            if start_idx in landmark_set and end_idx in landmark_set:
-                has_connection = True
-
-                if graph.has_edge(start_idx, end_idx):
+    for start_idx, end_idx in PoseMath.CUSTOM_POSE_CONNECTIONS:
+        graph.edges[start_idx, end_idx]['key'] = 0
+        for landmark_set in KEY_AREA[classification]:
+            if  len(landmark_set) > JOINT_SIZE:
+                if start_idx in landmark_set and end_idx in landmark_set:
                     graph.edges[start_idx, end_idx]['key'] = 1
+                    break
 
-
-        if not has_connection:
-            for idx in landmark_set:
-                if idx in graph.nodes:
+    for idx in PoseMath.CUSTOM_JOINT:
+        graph.nodes[idx]['key'] = 0
+        for landmark_set in KEY_AREA[classification]:
+            if  len(landmark_set) == JOINT_SIZE:
+                if idx in landmark_set:
                     graph.nodes[idx]['key'] = 1
+                    break
 
     return graph
 
