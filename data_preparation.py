@@ -30,16 +30,16 @@ print(f"Welcome to DATA_PREPARATION")
 # left_knee = [25]
 # right_knee = [26]
 
-body = [11, 12, 23, 24]
-shoulder = [11, 12]
-hip = [23, 24]
-forearm = [13, 14, 15, 16]
-upper_arm = [11, 12, 13, 14]
-thigh = [23, 24, 25, 26]
-lower_leg = [25, 26, 27, 28]
-knee = [25, 26]
-wrist = [15, 16]
-ankle = [27, 28]
+body = {11, 12, 23, 24}
+forearm = {13, 14, 15, 16}
+upper_arm = {11, 12, 13, 14}
+thigh = {23, 24, 25, 26}
+lower_leg = {25, 26, 27, 28}
+shoulder = {11, 12}
+hip = {23, 24}
+knee = {25, 26}
+wrist = {15, 16}
+ankle = {27, 28}
 
 KEY_AREA = {
     # "Downdog": left_arm + right_arm + left_leg + right_leg,
@@ -52,21 +52,22 @@ KEY_AREA = {
     # "Warrior1": left_leg + right_leg,
     # "Warrior2": left_leg + right_leg,
 
-    "goddess": body + hip + thigh,
-    "triangle": body + shoulder ,
-    "staff": body,
-    "catcow": body,
-    "child": body + shoulder + hip + thigh,
-    "downdog": body + shoulder + upper_arm + forearm + hip + lower_leg + ankle,
-    "seatedforward": body + ankle,
-    "bridge": body + hip,
-    "wheel": body + shoulder + forearm + upper_arm + hip + thigh + lower_leg,
-    "halfspinaltwist": body,
-    "shoulderstand": body + shoulder,
-    "happybaby": hip + thigh,
-    "reclining": body + hip ,
-    "cobra": body ,
-    "plank": body + shoulder + forearm + upper_arm + wrist 
+    "goddess": [body, hip, thigh],
+    "triangle": [body, shoulder] ,
+    "staff": [body],
+    "catcow": [body],
+    "child": [body, shoulder, hip, thigh],
+    "downdog": [body, shoulder, upper_arm, forearm, hip, lower_leg, ankle],
+    "seatedforward": [body, ankle],
+    "bridge": [body, hip],
+    "wheel": [body, shoulder, forearm, upper_arm, hip, thigh, lower_leg],
+    "halfspinaltwist": [body],
+    "shoulderstand": [body, shoulder],
+    "happybaby": [hip, thigh],
+    "reclining": [body, hip] ,
+    "cobra": [body] ,
+    "plank": [body, shoulder, forearm, upper_arm, wrist],
+    "warrior2": [body, thigh, shoulder]
 
 }
 
@@ -120,7 +121,7 @@ def get_file(graphs, train_pickle, test_pickle, train_json, test_json):
     for graph in graphs:
         classification = graph.graph.get('classification') 
         if classification is None:
-            print("Warning: พบกราฟที่ไม่มี 'classification'")
+            print("Warning: graph no 'classification'")
             continue
 
         if classification not in classification_groups:
@@ -141,7 +142,6 @@ def get_file(graphs, train_pickle, test_pickle, train_json, test_json):
     save_graphs_to_json(train_graphs, train_json)
     save_graphs_to_json(test_graphs, test_json)
     
-    # ตรวจสอบการกระจายของ classification
     def count_classifications(graph_list):
         counts = {}
         for graph in graph_list:
@@ -205,25 +205,22 @@ def get_key_area(graph, classification):
             key = 1
         graph.nodes[idx]['key'] = key
 
-    # for connection in PoseMath.CUSTOM_POSE_CONNECTIONS:
-    #     start_idx, end_idx = connection
-    #     if start_idx < len(landmarks) and end_idx < len(landmarks):
-    #         lm1 = landmarks[start_idx]
-    #         lm2 = landmarks[end_idx]
 
-    #         # Distance
-    #         distance = PoseMath.calculate_distance(
-    #             lm1['x'], lm1['y'], 
-    #             lm2['x'], lm2['y'], 
-    #             lm1['z'], lm2['z']
-    #         )
-    #         # Direction
-    #         direction = PoseMath.calculate_direction(
-    #             {'x': lm1['x'], 'y': lm1['y'], 'z': lm1['z']},
-    #             {'x': lm2['x'], 'y': lm2['y'], 'z': lm2['z']}
-    #         )
+    for landmark_set in KEY_AREA[classification]:
+        has_connection = False
 
-    #         G.add_edge(start_idx, end_idx, distance = distance, dir = direction)
+        for start_idx, end_idx in PoseMath.CUSTOM_POSE_CONNECTIONS:
+            if start_idx in landmark_set and end_idx in landmark_set:
+                has_connection = True
+
+                if graph.has_edge(start_idx, end_idx):
+                    graph.edges[start_idx, end_idx]['key'] = 1
+
+
+        if not has_connection:
+            for idx in landmark_set:
+                if idx in graph.nodes:
+                    graph.nodes[idx]['key'] = 1
 
     return graph
 

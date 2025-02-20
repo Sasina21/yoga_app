@@ -22,6 +22,26 @@ class PoseMath:
         (24, 26), (26, 28)
     ])
 
+    CUSTOM_JOINT = frozenset([
+        # shoulder
+        11, 12,
+
+        # elbow
+        13, 14,
+
+        # wrist
+        15, 16,
+
+        # hip 
+        23, 24,
+
+        # knee
+        25, 26,
+
+        # ankle 
+        27, 28
+    ])
+
     @staticmethod
     def calculate_direction(a, b):
         return {
