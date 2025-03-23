@@ -24,13 +24,32 @@ knee = {25, 26}
 wrist = {15, 16}
 ankle = {27, 28}
 
+gast = {} # กล้ามเนื้อน่อง (Gastrocnemius - GAST)
+vl = {} # กล้ามเนื้อต้นขาด้านนอก (Vastus lateralis - VL)
+gm = {} # กล้ามเนื้อก้น (Gluteus maximus - GM)
+ra = {} # กล้ามเนื้อหน้าท้อง (Rectus abdominis - RA)
+es = {} # กล้ามเนื้อแนวกระดูกสันหลัง (Erector spinae - ES)
+ld = {} # กล้ามเนื้อหลังด้านข้าง (Latissimus dorsi - LD)
+lt = {} # กล้ามเนื้อสะบักล่าง (Lower trapezius - LT)
+
+MUSCLE_LABELS = ["gast", "vl", "gm", "ra", "es", "ld", "lt"]
+MUSCLE_LABEL_MAP = {
+    "salutation":   [0, 0, 0, 0, 0, 0, 0],
+    "raisedarms":   [0, 0, 0, 0, 1, 1, 1],
+    "handtofoot":   [0, 0, 0, 1, 1, 0 ,0],
+    "equestrian":   [0, 0, 0, 0, 1, 0, 0],
+    "downdog":      [0, 0, 0, 0, 1, 1, 0],
+    "eightlimbed":  [0, 0, 0, 0, 1, 1, 1],
+    "cobra":        [0, 0, 0, 0, 1, 1, 1],
+}
+
 KEY_AREA = {
     "goddess": [body, hip, thigh],
     "triangle": [body, shoulder] ,
     "staff": [body],
     "catcow": [body],
     "child": [body, shoulder, hip, thigh],
-    "downdog": [body, shoulder, upper_arm, forearm, hip, lower_leg, ankle],
+    # "downdog": [body, shoulder, upper_arm, forearm, hip, lower_leg, ankle],
     "seatedforward": [body, ankle],
     "bridge": [body, hip],
     "wheel": [body, shoulder, forearm, upper_arm, hip, thigh, lower_leg],
@@ -41,16 +60,10 @@ KEY_AREA = {
     "cobra": [body] ,
     "plank": [body, shoulder, forearm, upper_arm, wrist],
     "warrior2": [body, thigh, shoulder],
-
+    "chair": [body, shoulder, upper_arm, thigh],
+    "mountain": [],
+    "extendedmountain": [shoulder, upper_arm],
 }
-
-# CRITICAL = {
-#     "Downdog": wrist + ankle,
-#     "Triangle" : body + shoulder + hip + thigh + ankle,
-#     "Seated Forward" : body + hip + ankle,
-#     "Cobra": body + shoulder, 
-#     "Child" : body + shoulder + hip + thigh,
-# }
 
 def save_graphs_to_json(graphs, json_path):
     graph_list = []
@@ -58,6 +71,7 @@ def save_graphs_to_json(graphs, json_path):
         graph_data = {
             "classification": G.graph.get("classification"),
             "filename": G.graph.get("filename"),
+            "label": G.graph.get("label"), 
             "nodes": [
                 {"id": node, **data} for node, data in G.nodes(data=True)
             ],
@@ -85,8 +99,6 @@ def save_graphs_to_pickle(graphs, pickle_path):
 #     save_graphs_to_json(test_graphs, test_json)
     
 #     print(f"Train graphs: {len(train_graphs)}, Test graphs: {len(test_graphs)}")
-
-import random
 
 def get_file(graphs, train_pickle, test_pickle, train_json, test_json):
 
@@ -190,6 +202,31 @@ def get_key_area(graph, classification):
 
     return graph
 
+def get_label(graph, classification):
+    
+    if graph is None:
+        print("Error: graph is None")
+        return None
+    
+    if classification in MUSCLE_LABEL_MAP:
+        label = MUSCLE_LABEL_MAP[classification]
+    else:
+        label = [0] * len(MUSCLE_LABELS)
+
+    graph.graph['label'] = label
+
+    return graph
+
+def relabel_graph_sequentially(G):
+    # Step 1: สร้าง mapping จาก id เก่า → ใหม่ (เรียงจากน้อยไปมาก)
+    sorted_old_ids = sorted(G.nodes)
+    id_map = {old_id: new_id for new_id, old_id in enumerate(sorted_old_ids)}
+
+    # Step 2: ใช้ NetworkX function เพื่อรีแมป node id
+    G_relabel = nx.relabel_nodes(G, id_map, copy=True)
+
+    return G_relabel
+
 def get_graph(landmarks, classification=None, filename=None):
     if landmarks is None:
         print("Error: Landmarks are None")
@@ -205,12 +242,19 @@ def get_graph(landmarks, classification=None, filename=None):
                         x=lm['x'], 
                         y=lm['y'], 
                         z=lm['z'])
+            
 
     for connection in PoseMath.CUSTOM_POSE_CONNECTIONS:
         start_idx, mid_idx = connection
         if start_idx < len(landmarks) and mid_idx < len(landmarks):
             lm1 = landmarks[start_idx]
             lm2 = landmarks[mid_idx]
+            
+            # # Add nodes only if they're involved in a connection
+            # if start_idx not in G.nodes:
+            #     G.add_node(start_idx, x=lm1['x'], y=lm1['y'], z=lm1['z'])
+            # if mid_idx not in G.nodes:
+            #     G.add_node(mid_idx, x=lm2['x'], y=lm2['y'], z=lm2['z'])
 
             # Distance
             distance = PoseMath.calculate_distance(
@@ -250,11 +294,23 @@ def get_graph(landmarks, classification=None, filename=None):
                         )
                         G.nodes[start_idx]['angle'] = angle
     
-    # Distance landmark(11-12) and (23-24)
+    # Landmark(11-12) and (23-24)
     lm11 = landmarks[11]
     lm12 = landmarks[12]
     lm23 = landmarks[23]
     lm24 = landmarks[24]
+
+    # Direction
+    direction_shoulder = PoseMath.calculate_direction(
+        {'x': lm11['x'], 'y': lm11['y'], 'z': lm11['z']},
+        {'x': lm12['x'], 'y': lm12['y'], 'z': lm12['z']}
+    )
+    direction_waist = PoseMath.calculate_direction(
+        {'x': lm23['x'], 'y': lm23['y'], 'z': lm23['z']},
+        {'x': lm24['x'], 'y': lm24['y'], 'z': lm24['z']}
+    )
+    
+    # Distance
     distance_shoulder = PoseMath.calculate_distance(
         lm11['x'], lm11['y'], 
         lm12['x'], lm12['y'], 
@@ -265,8 +321,8 @@ def get_graph(landmarks, classification=None, filename=None):
         lm24['x'], lm24['y'], 
         lm23['z'], lm24['z']
     )
-    G.add_edge(11, 12, distance=distance_shoulder)
-    G.add_edge(23, 24, distance=distance_waist)
+    G.add_edge(11, 12, distance=distance_shoulder, direction=direction_shoulder)
+    G.add_edge(23, 24, distance=distance_waist, direction=direction_waist)
     
     if G is None:
         print("Error: Failed to generate graph from landmarks.")
@@ -281,7 +337,7 @@ def get_files_in_folders(base_folder):
     for classification in os.listdir(base_folder):
         _classification = classification.lower().replace(" ", "")
 
-        if _classification and _classification in KEY_AREA:
+        if _classification and _classification in MUSCLE_LABEL_MAP:
             classification_path = os.path.join(base_folder, classification)
 
             if not os.path.isdir(classification_path):
@@ -300,12 +356,12 @@ def get_files_in_folders(base_folder):
 
 if __name__ == "__main__":
     # Input folders
-    base_folder = "prelim/DATASET/dataset"
+    base_folder = "prelim/dataset_emgref"
     # Output files
-    output_train_pickle = "15classes_datatrain.pkl"
-    output_test_pickle = "15classes_datatest.pkl"
-    output_train_json = "15classes_datatrain.json"
-    output_test_json = "15classes_datatest.json"
+    output_train_pickle = "emg_datatrain.pkl"
+    output_test_pickle = "emg_datatest.pkl"
+    output_train_json = "emg_datatrain.json"
+    output_test_json = "emg_datatest.json"
 
     graphs = []
 
@@ -316,7 +372,8 @@ if __name__ == "__main__":
             image = cv2.imread(image_path)
             landmarks = get_landmarks(image)
             graph = get_graph(landmarks, classification, image_path)
-            graph = get_key_area(graph, classification)
+            # graph = get_key_area(graph, classification)
+            graph = get_label(graph, classification)
 
             if graph:
                 graphs.append(graph)
