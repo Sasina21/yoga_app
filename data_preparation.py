@@ -24,14 +24,6 @@ knee = {25, 26}
 wrist = {15, 16}
 ankle = {27, 28}
 
-gast = {} # กล้ามเนื้อน่อง (Gastrocnemius - GAST)
-vl = {} # กล้ามเนื้อต้นขาด้านนอก (Vastus lateralis - VL)
-gm = {} # กล้ามเนื้อก้น (Gluteus maximus - GM)
-ra = {} # กล้ามเนื้อหน้าท้อง (Rectus abdominis - RA)
-es = {} # กล้ามเนื้อแนวกระดูกสันหลัง (Erector spinae - ES)
-ld = {} # กล้ามเนื้อหลังด้านข้าง (Latissimus dorsi - LD)
-lt = {} # กล้ามเนื้อสะบักล่าง (Lower trapezius - LT)
-
 MUSCLE_LABELS = ["gast", "vl", "gm", "ra", "es", "ld", "lt"]
 MUSCLE_LABEL_MAP = {
     "salutation":   [0, 0, 0, 0, 0, 0, 0],
@@ -41,6 +33,16 @@ MUSCLE_LABEL_MAP = {
     "downdog":      [0, 0, 0, 0, 1, 1, 0],
     "eightlimbed":  [0, 0, 0, 0, 1, 1, 1],
     "cobra":        [0, 0, 0, 0, 1, 1, 1],
+}
+
+MUSCLE_EDGE_MAP = {
+    "gast": [(25,27), (26,28)],     # กล้ามเนื้อน่อง (Gastrocnemius - GAST)
+    "vl":   [(23,25), (24,26)],     # กล้ามเนื้อต้นขาด้านนอก (Vastus lateralis - VL)
+    "gm":   [(23,24)],              # กล้ามเนื้อก้น (Gluteus maximus - GM)
+    "ra":   [(11,23), (12,24)],     # กล้ามเนื้อหน้าท้อง (Rectus abdominis - RA)
+    "es":   [(11,23), (12,24)],     # กล้ามเนื้อแนวกระดูกสันหลัง (Erector spinae - ES)
+    "ld":   [(11,23), (12,24)],     # กล้ามเนื้อหลังด้านข้าง (Latissimus dorsi - LD)
+    "lt":   [(11,12)],              # กล้ามเนื้อสะบักล่าง (Lower trapezius - LT)
 }
 
 KEY_AREA = {
@@ -217,6 +219,30 @@ def get_label(graph, classification):
 
     return graph
 
+def get_muscle_location(graph):
+    if graph is None:
+        print("Error: graph is None")
+        return None
+
+    num_muscles = len(MUSCLE_LABELS)
+
+    for u, v, attr in graph.edges(data=True):
+        # เตรียม multi-hot vector สำหรับกล้ามเนื้อ
+        muscle_vec = [0] * num_muscles
+
+        for idx, muscle in enumerate(MUSCLE_LABELS):
+            edge_list = MUSCLE_EDGE_MAP[muscle]
+
+            # เช็คว่า edge (u,v) หรือ (v,u) อยู่ในตำแหน่งกล้ามเนื้อมัดนี้ไหม
+            if (u, v) in edge_list or (v, u) in edge_list:
+                muscle_vec[idx] = 1
+
+        # ใส่ค่า muscle_vec เข้าไปใน edge attribute
+        attr["muscle_location"] = muscle_vec
+
+    return graph
+
+
 def relabel_graph_sequentially(G):
     # Step 1: สร้าง mapping จาก id เก่า → ใหม่ (เรียงจากน้อยไปมาก)
     sorted_old_ids = sorted(G.nodes)
@@ -328,6 +354,8 @@ def get_graph(landmarks, classification=None, filename=None):
         print("Error: Failed to generate graph from landmarks.")
         return None
     
+    G = get_muscle_location(G)
+
     return G
 
 def get_files_in_folders(base_folder):
@@ -358,10 +386,10 @@ if __name__ == "__main__":
     # Input folders
     base_folder = "prelim/dataset_emgref"
     # Output files
-    output_train_pickle = "emg_datatrain.pkl"
-    output_test_pickle = "emg_datatest.pkl"
-    output_train_json = "emg_datatrain.json"
-    output_test_json = "emg_datatest.json"
+    output_train_pickle = "muslo_emg_datatrain.pkl"
+    output_test_pickle = "muslo_emg_datatest.pkl"
+    output_train_json = "muslo_emg_datatrain.json"
+    output_test_json = "muslo_emg_datatest.json"
 
     graphs = []
 
